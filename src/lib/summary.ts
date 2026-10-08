@@ -9,9 +9,9 @@ export interface DayTotals {
 const byDate = (a: Entry, b: Entry) => a.date.localeCompare(b.date) || a.updatedAt - b.updatedAt
 
 /** 日付ごとの明細(入力順) */
-export function indexByDay(book: Book): Map<string, Entry[]> {
+export function indexByDay(book: Book, ledger: string): Map<string, Entry[]> {
   const m = new Map<string, Entry[]>()
-  for (const e of liveEntries(book).sort(byDate)) {
+  for (const e of liveEntries(book, ledger).sort(byDate)) {
     const l = m.get(e.date)
     if (l) l.push(e)
     else m.set(e.date, [e])
@@ -30,7 +30,7 @@ export function dayTotals(byDay: Map<string, Entry[]>): Map<string, DayTotals> {
 }
 
 /** その月(2026-10)の明細 */
-export const monthEntries = (book: Book, ym: string) => liveEntries(book).filter((e) => e.date.startsWith(ym)).sort(byDate)
+export const monthEntries = (book: Book, ym: string, ledger: string) => liveEntries(book, ledger).filter((e) => e.date.startsWith(ym)).sort(byDate)
 
 export function totalsOf(entries: Entry[]): DayTotals {
   const t = { income: 0, expense: 0 }

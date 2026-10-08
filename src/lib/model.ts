@@ -18,6 +18,7 @@ export interface Entry {
   updatedAt: number
   deleted?: true
   importId?: string // CSV から取り込んだ明細(取り込み単位で取り消せるように)
+  ledgerId?: string // 帳簿(無ければ最初の帳簿 MAIN_LEDGER)
 }
 
 export interface Category {
@@ -27,6 +28,16 @@ export interface Category {
   color: string
   order: number
   hidden?: boolean // 入力画面に出さない(過去の明細の表示には使う)
+  ledgerId?: string // 帳簿(無ければ最初の帳簿 MAIN_LEDGER)
+  updatedAt: number
+  deleted?: true
+}
+
+/** 帳簿(かけ〜ぼ の「帳簿」と同じ。家計・仕事などを分けて記録する) */
+export interface Ledger {
+  id: string
+  name: string
+  order: number
   updatedAt: number
   deleted?: true
 }
@@ -46,7 +57,17 @@ export interface Book {
   entries: Record<string, Entry>
   categories: Record<string, Category>
   imports: Record<string, ImportRecord>
+  ledgers: Record<string, Ledger>
 }
+
+/** 最初の帳簿(帳簿の指定が無い明細・カテゴリはこの帳簿のもの) */
+export const MAIN_LEDGER = 'l-main'
+export const ledgerOf = (x: { ledgerId?: string }) => x.ledgerId ?? MAIN_LEDGER
+
+export const liveLedgers = (b: Book) =>
+  Object.values(b.ledgers)
+    .filter((l) => !l.deleted)
+    .sort((x, y) => x.order - y.order || x.name.localeCompare(y.name, 'ja'))
 
 export const KIND_LABEL: Record<Kind, string> = { expense: '支出', income: '収入' }
 
@@ -79,7 +100,7 @@ export function emptyBook(): Book {
   DEFAULTS.forEach(([kind, id, name, color], i) => {
     categories[id] = { id, kind, name, color, order: i, updatedAt: 0 }
   })
-  return { format: 'kakeibo', version: 1, entries: {}, categories, imports: {} }
+  return { format: 'kakeibo', version: 1, entries: {}, categories, imports: {}, ledgers: { [MAIN_LEDGER]: { id: MAIN_LEDGER, name: '家計簿', order: 0, updatedAt: 0 } } }
 }
 
 export const newId = (prefix: string) =>
@@ -112,6 +133,7 @@ export function mergeBooks(a: Book, b: Book): Book {
     entries: mergeMap(a.entries, b.entries),
     categories: mergeMap(a.categories, b.categories),
     imports: mergeMap(a.imports ?? {}, b.imports ?? {}),
+    ledgers: mergeMap(a.ledgers ?? {}, b.ledgers ?? {}),
   }
 }
 
@@ -119,7 +141,7 @@ export function mergeBooks(a: Book, b: Book): Book {
 export function parseBook(text: string): Book {
   const raw = JSON.parse(text) as Partial<Book>
   if (raw?.format !== 'kakeibo' || typeof raw.entries !== 'object') throw new Error('家計簿データのファイルではありません')
-  return mergeBooks(emptyBook(), { format: 'kakeibo', version: 1, entries: raw.entries ?? {}, categories: raw.categories ?? {}, imports: raw.imports ?? {} })
+  return mergeBooks(emptyBook(), { format: 'kakeibo', version: 1, entries: raw.entries ?? {}, categories: raw.categories ?? {}, imports: raw.imports ?? {}, ledgers: raw.ledgers ?? {} })
 }
 
 /** 内容が同じか(保存・送信が必要かの判定) */
@@ -134,13 +156,19 @@ export const sortBook = (b: Book): Book => ({
   entries: sortObj(b.entries),
   categories: sortObj(b.categories),
   imports: sortObj(b.imports),
+  ledgers: sortObj(b.ledgers),
 })
 
-export const liveEntries = (b: Book) => Object.values(b.entries).filter((e) => !e.deleted)
+/** 削除されていない明細。ledger を指定するとその帳簿だけ('all' または省略で全帳簿) */
+export const liveEntries = (b: Book, ledger?: string) =>
+  Object.values(b.entries).filter((e) => !e.deleted && (!ledger || ledger === ALL_LEDGERS || ledgerOf(e) === ledger))
 
-export const liveCategories = (b: Book, kind?: Kind) =>
+/** 「すべての帳簿」をまとめて見るときの指定 */
+export const ALL_LEDGERS = 'all'
+
+export const liveCategories = (b: Book, kind?: Kind, ledger?: string) =>
   Object.values(b.categories)
-    .filter((c) => !c.deleted && (!kind || c.kind === kind))
+    .filter((c) => !c.deleted && (!kind || c.kind === kind) && (!ledger || ledger === ALL_LEDGERS || ledgerOf(c) === ledger))
     .sort((x, y) => x.order - y.order || x.name.localeCompare(y.name, 'ja'))
 
 export const yen = (n: number) => `${n < 0 ? '-' : ''}¥${Math.abs(n).toLocaleString('ja-JP')}`

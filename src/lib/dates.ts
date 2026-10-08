@@ -19,10 +19,10 @@ export const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMo
 
 export const sameDay = (a: Date, b: Date) => ymd(a) === ymd(b)
 
-/** 月表示の6週分の日付(日曜始まり) */
-export function monthGrid(year: number, month0: number): { start: Date; end: Date; days: Date[] } {
+/** 月表示の6週分の日付。weekStart: 0=日曜始まり 1=月曜始まり */
+export function monthGrid(year: number, month0: number, weekStart = 0): { start: Date; end: Date; days: Date[] } {
   const first = new Date(year, month0, 1)
-  const start = addDays(first, -first.getDay())
+  const start = addDays(first, -((first.getDay() - weekStart + 7) % 7))
   const days = Array.from({ length: 42 }, (_, i) => addDays(start, i))
   return { start, end: addDays(start, 42), days }
 }

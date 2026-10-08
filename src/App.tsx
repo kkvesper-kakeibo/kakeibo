@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useBook } from './lib/useBook'
-import { stamp, yen, type Entry, type Kind } from './lib/model'
+import { ALL_LEDGERS, liveLedgers, MAIN_LEDGER, stamp, yen, type Entry, type Kind } from './lib/model'
 import { dayTotals, indexByDay, monthEntries, totalsOf } from './lib/summary'
 import { ymd } from './lib/dates'
 import { useNewerVersion, versionLabel } from './lib/version'
@@ -12,6 +12,8 @@ import SettingsView, { type Theme } from './views/SettingsView'
 type Tab = 'calendar' | 'list' | 'settings'
 const THEME = 'kakeibo.theme'
 const TAB = 'kakeibo.tab'
+const LEDGER = 'kakeibo.ledger'
+const WEEK_START = 'kakeibo.weekStart'
 
 const lsGet = (k: string) => {
   try {
@@ -38,6 +40,19 @@ export default function App() {
   const [form, setForm] = useState<{ date: string; kind?: Kind } | Entry | null>(null)
   const [theme, setThemeState] = useState<Theme>(() => (lsGet(THEME) as Theme) || 'auto')
   const newer = useNewerVersion()
+  const [ledgerPick, setLedgerPick] = useState(() => lsGet(LEDGER) || MAIN_LEDGER)
+  const [weekStart, setWeekStartState] = useState(() => Number(lsGet(WEEK_START) ?? '1'))
+  const ledgers = useMemo(() => (book ? liveLedgers(book) : []), [book])
+  // 選んでいた帳簿が消されていたら最初の帳簿に戻す
+  const ledger = ledgerPick === ALL_LEDGERS || ledgers.some((l) => l.id === ledgerPick) ? ledgerPick : (ledgers[0]?.id ?? MAIN_LEDGER)
+  const pickLedger = (id: string) => {
+    setLedgerPick(id)
+    lsSet(LEDGER, id)
+  }
+  const setWeekStart = (n: number) => {
+    setWeekStartState(n)
+    lsSet(WEEK_START, String(n))
+  }
 
   useEffect(() => {
     if (theme === 'auto') document.documentElement.removeAttribute('data-theme')
@@ -61,9 +76,9 @@ export default function App() {
     setSelected(nym === today.slice(0, 7) ? today : `${nym}-01`)
   }
 
-  const byDay = useMemo(() => (book ? indexByDay(book) : new Map()), [book])
+  const byDay = useMemo(() => (book ? indexByDay(book, ledger) : new Map<string, Entry[]>()), [book, ledger])
   const totals = useMemo(() => dayTotals(byDay), [byDay])
-  const monthT = useMemo(() => (book ? totalsOf(monthEntries(book, ym)) : { income: 0, expense: 0 }), [book, ym])
+  const monthT = useMemo(() => (book ? totalsOf(monthEntries(book, ym, ledger)) : { income: 0, expense: 0 }), [book, ym, ledger])
 
   const save = useCallback(
     (e: Entry) => {
@@ -118,6 +133,16 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="title">家計簿</div>
+        {ledgers.length > 1 && (
+          <select className="ledger-select" value={ledger} onChange={(e) => pickLedger(e.target.value)} aria-label="帳簿">
+            {ledgers.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+            <option value={ALL_LEDGERS}>すべての帳簿</option>
+          </select>
+        )}
         {tab !== 'settings' && (
           <div className="month-nav">
             <button type="button" className="ghost small" onClick={() => shiftMonth(-1)} aria-label="前の月">
@@ -211,10 +236,12 @@ export default function App() {
             }}
             onEdit={setForm}
             onAdd={(date) => setForm({ date })}
+            weekStart={weekStart}
+            showLedger={ledger === ALL_LEDGERS}
           />
         )}
-        {tab === 'list' && <ListView book={book} ym={ym} onEdit={setForm} />}
-        {tab === 'settings' && <SettingsView api={api} book={book} theme={theme} setTheme={setTheme} />}
+        {tab === 'list' && <ListView book={book} ym={ym} ledger={ledger} onEdit={setForm} />}
+        {tab === 'settings' && <SettingsView api={api} book={book} theme={theme} setTheme={setTheme} ledger={ledger} weekStart={weekStart} setWeekStart={setWeekStart} />}
       </main>
 
       {tab !== 'settings' && (
@@ -237,7 +264,7 @@ export default function App() {
         ))}
       </nav>
 
-      {form && <EntryForm key={'id' in form ? form.id : `new-${form.date}`} book={book} initial={form} onSave={save} onDelete={remove} onClose={() => setForm(null)} />}
+      {form && <EntryForm key={'id' in form ? form.id : `new-${form.date}`} book={book} initial={form} onSave={save} onDelete={remove} onClose={() => setForm(null)} ledger={ledger} />}
     </div>
   )
 }

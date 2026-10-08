@@ -2,11 +2,14 @@
 // 列の並びはアプリごとに違うので、どの列が日付・金額…かを画面で選ぶ(見出しから自動で推測する)
 import { useMemo, useState } from 'react'
 import { decodeText, parseCsv } from '../lib/csv'
-import { KIND_LABEL, liveCategories, liveEntries, newId, stamp, yen, type Book, type Category, type Entry, type Kind } from '../lib/model'
+import { ALL_LEDGERS, KIND_LABEL, ledgerOf, liveCategories, liveEntries, liveLedgers, MAIN_LEDGER, newId, stamp, yen, type Book, type Category, type Entry, type Kind } from '../lib/model'
+import { readKakeboFiles, type KakeboBackup } from '../lib/kakebo'
+import KakeboImport from './KakeboImport'
 
 interface Props {
   book: Book
   update: (fn: (b: Book) => Book) => void
+  current: string // 今見ている帳簿(取り込み先の初期値)
 }
 
 type KindMode = 'column' | 'split' | 'sign' | 'expense' | 'income'
@@ -96,18 +99,32 @@ interface Parsed {
 
 const dupKey = (date: string, kind: Kind, amount: number, cat: string, memo: string) => `${date}|${kind}|${amount}|${cat}|${memo}`
 
-export default function ImportView({ book, update }: Props) {
+export default function ImportView({ book, update, current }: Props) {
   const [fileName, setFileName] = useState('')
   const [rows, setRows] = useState<string[][]>([])
   const [map, setMap] = useState<Mapping | null>(null)
   const [skipDup, setSkipDup] = useState(true)
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
+  const [kakebo, setKakebo] = useState<KakeboBackup | null>(null)
+  const ledgers = liveLedgers(book)
+  const [targetPick, setTargetPick] = useState(current)
+  const target = targetPick !== ALL_LEDGERS && ledgers.some((l) => l.id === targetPick) ? targetPick : (ledgers[0]?.id ?? MAIN_LEDGER)
 
-  const open = async (f: File) => {
+  const open = async (files: File[]) => {
     setMsg('')
     setErr('')
+    setRows([])
+    setMap(null)
+    setKakebo(null)
     try {
+      // かけ〜ぼのバックアップ(cashbook_all.csv など)なら、帳簿・費目ごとまとめて取り込む画面にする
+      const kb = await readKakeboFiles(files)
+      if (kb) {
+        setKakebo(kb)
+        return
+      }
+      const f = files[0]
       const r = parseCsv(decodeText(await f.arrayBuffer()))
       if (!r.length) throw new Error('中身が空です')
       setRows(r)
@@ -125,13 +142,13 @@ export default function ImportView({ book, update }: Props) {
   // 取り込み済みの明細(重複の判定用)
   const existing = useMemo(() => {
     const s = new Set<string>()
-    for (const e of liveEntries(book)) s.add(dupKey(e.date, e.kind, e.amount, book.categories[e.categoryId]?.name ?? '', e.memo))
+    for (const e of liveEntries(book, target)) s.add(dupKey(e.date, e.kind, e.amount, book.categories[e.categoryId]?.name ?? '', e.memo))
     return s
-  }, [book])
+  }, [book, target])
 
   const parsed: Parsed[] = useMemo(() => {
     if (!map) return []
-    const get = (r: string[], i: number) => (i >= 0 ? (r[i] ?? '').trim() : '')
+    const get = (r: string[], i: number) => (i >= 0 ? (r[i] ?? '').replace(/�/g, '').trim() : '')
     return rows.slice(map.header ? 1 : 0).map((r, idx) => {
       const row = idx + (map.header ? 2 : 1)
       const date = parseDate(get(r, map.date)) ?? ''
@@ -167,10 +184,10 @@ export default function ImportView({ book, update }: Props) {
     const plan = new Map<string, { kind: Kind; name: string; existing?: Category }>()
     for (const p of valid) {
       const k = `${p.kind}|${p.catName}`
-      if (!plan.has(k)) plan.set(k, { kind: p.kind, name: p.catName, existing: liveCategories(book, p.kind).find((c) => c.name === p.catName) })
+      if (!plan.has(k)) plan.set(k, { kind: p.kind, name: p.catName, existing: liveCategories(book, p.kind, target).find((c) => c.name === p.catName) })
     }
     return [...plan.values()]
-  }, [valid, book])
+  }, [valid, book, target])
   const newCats = catPlan.filter((c) => !c.existing)
 
   const run = () => {
@@ -183,17 +200,17 @@ export default function ImportView({ book, update }: Props) {
       let order = Math.max(0, ...Object.values(categories).map((c) => c.order)) + 1
       const palette = ['#e8833a', '#5bb57a', '#4a90d9', '#c06bc2', '#e2b33d', '#2fb3a8', '#e86b8f', '#7a7fd6', '#8d6e63', '#6d9a4a']
       for (const c of catPlan) {
-        const found = c.existing ?? Object.values(categories).find((x) => !x.deleted && x.kind === c.kind && x.name === c.name)
+        const found = c.existing ?? Object.values(categories).find((x) => !x.deleted && x.kind === c.kind && x.name === c.name && ledgerOf(x) === target)
         if (found) idOf.set(`${c.kind}|${c.name}`, found.id)
         else {
           const id = newId('c')
-          categories[id] = { id, kind: c.kind, name: c.name, color: palette[order % palette.length], order: order++, updatedAt: stamp() }
+          categories[id] = { id, kind: c.kind, name: c.name, color: palette[order % palette.length], order: order++, ledgerId: target === MAIN_LEDGER ? undefined : target, updatedAt: stamp() }
           idOf.set(`${c.kind}|${c.name}`, id)
         }
       }
       const entries = { ...b.entries }
       for (const p of valid) {
-        const e: Entry = { id: newId('e'), date: p.date, kind: p.kind, amount: p.amount, categoryId: idOf.get(`${p.kind}|${p.catName}`)!, memo: p.memo, updatedAt: stamp(), importId }
+        const e: Entry = { id: newId('e'), date: p.date, kind: p.kind, amount: p.amount, categoryId: idOf.get(`${p.kind}|${p.catName}`)!, memo: p.memo, ledgerId: target === MAIN_LEDGER ? undefined : target, updatedAt: stamp(), importId }
         entries[e.id] = e
       }
       return {
@@ -243,18 +260,55 @@ export default function ImportView({ book, update }: Props) {
       <p className="muted">
         他の家計簿アプリで書き出した CSV ファイルを選ぶと、中身を確認してから取り込めます。取り込んでも、今ある明細は消えません。
       </p>
+      <p className="muted small-note">
+        かけ〜ぼ: バックアップのフォルダの <code>cashbook_all.csv</code>・<code>items.csv</code>・<code>codeName.csv</code> をまとめて選ぶ(Ctrl キーを押しながらクリック)と、帳簿・費目の色と並び順ごと取り込みます。
+      </p>
       <label className="file-btn">
         CSV ファイルを選ぶ
-        <input type="file" accept=".csv,.txt,.tsv,text/csv" onChange={(e) => e.target.files?.[0] && open(e.target.files[0])} hidden />
+        <input
+          type="file"
+          multiple
+          accept=".csv,.txt,.tsv,text/csv"
+          onChange={(e) => {
+            const fs = [...(e.target.files ?? [])]
+            e.target.value = ''
+            if (fs.length) void open(fs)
+          }}
+          hidden
+        />
       </label>
       {err && <div className="msg error">{err}</div>}
       {msg && <div className="msg ok">{msg}</div>}
+      {kakebo && (
+        <KakeboImport
+          book={book}
+          backup={kakebo}
+          update={update}
+          onDone={(m) => {
+            setMsg(m)
+            setKakebo(null)
+          }}
+          onCancel={() => setKakebo(null)}
+        />
+      )}
 
       {map && (
         <div className="import-box">
           <p>
             <b>{fileName}</b>({rows.length}行)
           </p>
+          {ledgers.length > 1 && (
+            <label className="map-row">
+              <span>取り込み先の帳簿</span>
+              <select value={target} onChange={(e) => setTargetPick(e.target.value)}>
+                {ledgers.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="check">
             <input type="checkbox" checked={map.header} onChange={(e) => setMap({ ...map, header: e.target.checked })} />
             1行目は見出し(取り込まない)

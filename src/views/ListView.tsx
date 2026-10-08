@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { KIND_LABEL, liveEntries, yen, type Book, type Entry, type Kind } from '../lib/model'
+import { ALL_LEDGERS, KIND_LABEL, liveEntries, yen, type Book, type Entry, type Kind } from '../lib/model'
 import { byCategory, monthEntries, totalsOf } from '../lib/summary'
 import { WEEKDAYS, parseYmd } from '../lib/dates'
 import EntryRow from './EntryRow'
@@ -7,27 +7,28 @@ import EntryRow from './EntryRow'
 interface Props {
   book: Book
   ym: string // 2026-10
+  ledger: string
   onEdit: (e: Entry) => void
 }
 
-export default function ListView({ book, ym, onEdit }: Props) {
+export default function ListView({ book, ym, ledger, onEdit }: Props) {
   const [query, setQuery] = useState('')
   const [catFilter, setCatFilter] = useState('')
   const [breakdown, setBreakdown] = useState<Kind>('expense')
 
-  const month = useMemo(() => monthEntries(book, ym), [book, ym])
+  const month = useMemo(() => monthEntries(book, ym, ledger), [book, ym, ledger])
   const q = query.trim().toLowerCase()
 
   // 検索語があるときは全期間から探す(新しい順)
   const shown = useMemo(() => {
     let list = q
-      ? liveEntries(book)
+      ? liveEntries(book, ledger)
           .filter((e) => `${e.memo} ${book.categories[e.categoryId]?.name ?? ''} ${e.amount}`.toLowerCase().includes(q))
           .sort((a, b) => b.date.localeCompare(a.date))
       : month
     if (catFilter) list = list.filter((e) => e.categoryId === catFilter)
     return list
-  }, [book, month, q, catFilter])
+  }, [book, month, q, catFilter, ledger])
 
   const groups = useMemo(() => {
     const g: { date: string; list: Entry[] }[] = []
@@ -117,7 +118,7 @@ export default function ListView({ book, ym, onEdit }: Props) {
                 </div>
                 <ul className="entries">
                   {g.list.map((e) => (
-                    <EntryRow key={e.id} book={book} entry={e} onClick={() => onEdit(e)} />
+                    <EntryRow key={e.id} book={book} entry={e} onClick={() => onEdit(e)} showLedger={ledger === ALL_LEDGERS} />
                   ))}
                 </ul>
               </div>

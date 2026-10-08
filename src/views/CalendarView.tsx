@@ -14,12 +14,15 @@ interface Props {
   onSelect: (date: string) => void
   onEdit: (e: Entry) => void
   onAdd: (date: string) => void
+  weekStart: number
+  showLedger: boolean
 }
 
 const short = (n: number) => (n >= 1_000_000 ? `${Math.round(n / 10_000).toLocaleString()}万` : n.toLocaleString('ja-JP'))
 
-export default function CalendarView({ book, year, month0, totals, byDay, selected, onSelect, onEdit, onAdd }: Props) {
-  const grid = monthGrid(year, month0).days
+export default function CalendarView({ book, year, month0, totals, byDay, selected, onSelect, onEdit, onAdd, weekStart, showLedger }: Props) {
+  const grid = monthGrid(year, month0, weekStart).days
+  const heads = [0, 1, 2, 3, 4, 5, 6].map((i) => (i + weekStart) % 7)
   const today = ymd(new Date())
   const sel = byDay.get(selected) ?? []
   const selT = totals.get(selected)
@@ -29,9 +32,9 @@ export default function CalendarView({ book, year, month0, totals, byDay, select
     <div className="cal-layout">
       <div className="month">
         <div className="month-head">
-          {WEEKDAYS.map((w, i) => (
-            <div key={w} className={`wd ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>
-              {w}
+          {heads.map((i) => (
+            <div key={i} className={`wd ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>
+              {WEEKDAYS[i]}
             </div>
           ))}
         </div>
@@ -79,7 +82,7 @@ export default function CalendarView({ book, year, month0, totals, byDay, select
         {sel.length ? (
           <ul className="entries">
             {sel.map((e) => (
-              <EntryRow key={e.id} book={book} entry={e} onClick={() => onEdit(e)} />
+              <EntryRow key={e.id} book={book} entry={e} onClick={() => onEdit(e)} showLedger={showLedger} />
             ))}
           </ul>
         ) : (

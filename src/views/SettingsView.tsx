@@ -2,10 +2,11 @@ import { useState } from 'react'
 import type { BookApi } from '../lib/useBook'
 import { canPickFolder, pickRoot } from '../lib/backup'
 import { bookToCsv, downloadText } from '../lib/csv'
-import { KIND_LABEL, liveCategories, liveEntries, mergeBooks, newId, parseBook, sameBook, sortBook, stamp, type Book, type Kind } from '../lib/model'
+import { ALL_LEDGERS, emptyBook, KIND_LABEL, ledgerOf, liveCategories, liveEntries, liveLedgers, MAIN_LEDGER, mergeBooks, newId, parseBook, sameBook, sortBook, stamp, type Book, type Kind } from '../lib/model'
 import { ymd } from '../lib/dates'
 import { versionDetail } from '../lib/version'
 import ImportView from './ImportView'
+import { sortCategoriesByUse } from '../lib/kakebo'
 
 export type Theme = 'auto' | 'light' | 'dark'
 
@@ -14,11 +15,14 @@ interface Props {
   book: Book
   theme: Theme
   setTheme: (t: Theme) => void
+  ledger: string
+  weekStart: number
+  setWeekStart: (n: number) => void
 }
 
 const fmt = (iso: string) => (iso ? new Date(iso).toLocaleString('ja-JP') : 'まだありません')
 
-export default function SettingsView({ api, book, theme, setTheme }: Props) {
+export default function SettingsView({ api, book, theme, setTheme, ledger, weekStart, setWeekStart }: Props) {
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const count = liveEntries(book).length
@@ -141,9 +145,11 @@ export default function SettingsView({ api, book, theme, setTheme }: Props) {
         {err && <div className="msg error">{err}</div>}
       </section>
 
-      <CategoryEditor api={api} book={book} />
+      <LedgerEditor api={api} book={book} />
 
-      <ImportView book={book} update={api.update} />
+      <CategoryEditor api={api} book={book} current={ledger} />
+
+      <ImportView book={book} update={api.update} current={ledger} />
 
       <section className="card">
         <h2>表示</h2>
@@ -154,16 +160,114 @@ export default function SettingsView({ api, book, theme, setTheme }: Props) {
             </button>
           ))}
         </div>
+        <h3>カレンダーの週の始まり(この端末)</h3>
+        <div className="btn-row">
+          {[
+            [1, '月曜'],
+            [0, '日曜'],
+          ].map(([n, label]) => (
+            <button key={n} type="button" className={weekStart === n ? '' : 'ghost'} onClick={() => setWeekStart(n as number)}>
+              {label}
+            </button>
+          ))}
+        </div>
         <p className="muted small-note">{versionDetail}</p>
       </section>
     </div>
   )
 }
 
-function CategoryEditor({ api, book }: { api: BookApi; book: Book }) {
+function LedgerEditor({ api, book }: { api: BookApi; book: Book }) {
+  const [newName, setNewName] = useState('')
+  const ledgers = liveLedgers(book)
+  const counts = new Map<string, number>()
+  for (const e of liveEntries(book)) counts.set(ledgerOf(e), (counts.get(ledgerOf(e)) ?? 0) + 1)
+
+  const patch = (id: string, p: Partial<Book['ledgers'][string]>) =>
+    api.update((b) => ({ ...b, ledgers: { ...b.ledgers, [id]: { ...b.ledgers[id], ...p, updatedAt: stamp() } } }))
+
+  const move = (i: number, d: number) => {
+    const j = i + d
+    if (j < 0 || j >= ledgers.length) return
+    const list = [...ledgers]
+    ;[list[i], list[j]] = [list[j], list[i]]
+    api.update((b) => {
+      const next = { ...b.ledgers }
+      list.forEach((l, k) => {
+        if (next[l.id].order !== k) next[l.id] = { ...next[l.id], order: k, updatedAt: stamp() }
+      })
+      return { ...b, ledgers: next }
+    })
+  }
+
+  const add = () => {
+    const name = newName.trim()
+    if (!name) return
+    if (ledgers.some((l) => l.name === name)) return alert('同じ名前の帳簿があります')
+    const id = newId('l')
+    api.update((b) => {
+      // 新しい帳簿には、最初から用意しているカテゴリを入れておく
+      const categories = { ...b.categories }
+      for (const c of Object.values(emptyBook().categories)) {
+        const cid = newId('c')
+        categories[cid] = { ...c, id: cid, ledgerId: id, updatedAt: stamp() }
+      }
+      return { ...b, categories, ledgers: { ...b.ledgers, [id]: { id, name, order: ledgers.length, updatedAt: stamp() } } }
+    })
+    setNewName('')
+  }
+
+  return (
+    <section className="card">
+      <h2>帳簿</h2>
+      <p className="muted">家計と仕事などを分けて記録できます。画面上部で切り替え、「すべての帳簿」でまとめて見られます。</p>
+      <ul className="cat-edit">
+        {ledgers.map((l, i) => (
+          <li key={l.id}>
+            <input
+              className="cat-name"
+              defaultValue={l.name}
+              key={l.name}
+              onBlur={(e) => {
+                const v = e.target.value.trim()
+                if (v && v !== l.name) patch(l.id, { name: v })
+                else e.target.value = l.name
+              }}
+              aria-label="帳簿の名前"
+            />
+            <span className="muted">{counts.get(l.id) ?? 0}件</span>
+            <button type="button" className="ghost small" onClick={() => move(i, -1)} disabled={i === 0} aria-label="上へ">
+              ↑
+            </button>
+            <button type="button" className="ghost small" onClick={() => move(i, 1)} disabled={i === ledgers.length - 1} aria-label="下へ">
+              ↓
+            </button>
+            {!counts.get(l.id) && ledgers.length > 1 && (
+              <button type="button" className="ghost small" onClick={() => confirm(`帳簿「${l.name}」を削除しますか?`) && patch(l.id, { deleted: true })}>
+                削除
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="muted small-note">明細がある帳簿は削除できません。</p>
+      <div className="btn-row">
+        <input placeholder="新しい帳簿の名前" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
+        <button type="button" onClick={add}>
+          追加
+        </button>
+      </div>
+    </section>
+  )
+}
+
+function CategoryEditor({ api, book, current }: { api: BookApi; book: Book; current: string }) {
   const [kind, setKind] = useState<Kind>('expense')
   const [newName, setNewName] = useState('')
-  const cats = liveCategories(book, kind)
+  const ledgers = liveLedgers(book)
+  const [pick, setPick] = useState(current)
+  const ledger = pick !== ALL_LEDGERS && ledgers.some((l) => l.id === pick) ? pick : (ledgers[0]?.id ?? MAIN_LEDGER)
+  const cats = liveCategories(book, kind, ledger)
   const used = new Set(liveEntries(book).map((e) => e.categoryId))
 
   const patch = (id: string, p: Partial<Book['categories'][string]>) =>
@@ -188,13 +292,25 @@ function CategoryEditor({ api, book }: { api: BookApi; book: Book }) {
     if (!name) return
     if (cats.some((c) => c.name === name)) return alert('同じ名前のカテゴリがあります')
     const id = newId('c')
-    api.update((b) => ({ ...b, categories: { ...b.categories, [id]: { id, kind, name, color: '#7a8a9a', order: cats.length, updatedAt: stamp() } } }))
+    api.update((b) => ({ ...b, categories: { ...b.categories, [id]: { id, kind, name, color: '#7a8a9a', order: cats.length, ledgerId: ledger === MAIN_LEDGER ? undefined : ledger, updatedAt: stamp() } } }))
     setNewName('')
   }
 
   return (
     <section className="card">
       <h2>カテゴリ</h2>
+      {ledgers.length > 1 && (
+        <div className="btn-row">
+          <span className="muted">帳簿</span>
+          <select value={ledger} onChange={(e) => setPick(e.target.value)}>
+            {ledgers.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="kind-toggle small-toggle">
         {(['expense', 'income'] as Kind[]).map((k) => (
           <button key={k} type="button" className={`kind-btn ${k} ${kind === k ? 'on' : ''}`} onClick={() => setKind(k)}>
@@ -236,6 +352,16 @@ function CategoryEditor({ api, book }: { api: BookApi; book: Book }) {
         ))}
       </ul>
       <p className="muted small-note">明細があるカテゴリは削除できません(「隠す」で入力画面に出さないようにできます)。</p>
+      <button
+        type="button"
+        className="ghost small"
+        onClick={() =>
+          confirm('この帳簿のカテゴリを、明細で使った回数の多い順に並べ替えますか?') &&
+          api.update((b) => ({ ...b, categories: { ...b.categories, ...sortCategoriesByUse(b, new Set([ledger])) } }))
+        }
+      >
+        使う回数の多い順に並べ替え
+      </button>
       <div className="btn-row">
         <input placeholder="新しいカテゴリの名前" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
         <button type="button" onClick={add}>

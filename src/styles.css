@@ -98,7 +98,7 @@ input[type='color'] { padding: 2px; width: 40px; height: 34px; }
 .income { color: var(--income); }
 .expense { color: var(--expense); }
 .spacer { flex: 1; }
-.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; min-width: 0; }
 .msg { border-radius: 6px; padding: 8px 12px; margin: 8px 0; }
 .msg.ok { background: var(--ok-bg); border: 1px solid var(--ok-border); }
 .msg.error { background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--error); }
@@ -232,7 +232,7 @@ input[type='color'] { padding: 2px; width: 40px; height: 34px; }
 .form-actions { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
 
 /* ---- 設定 ---- */
-.settings { display: grid; gap: 14px; max-width: 820px; margin: 0 auto; }
+.settings { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; max-width: 820px; margin: 0 auto; }
 .cat-edit { list-style: none; padding: 0; margin: 10px 0; }
 .cat-edit li { display: flex; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--grid); flex-wrap: wrap; }
 .cat-edit li.hidden-cat .cat-name { opacity: 0.5; }
@@ -242,7 +242,7 @@ input[type='color'] { padding: 2px; width: 40px; height: 34px; }
 .plain-list li { margin: 4px 0; }
 .plain-list button { margin-left: 8px; }
 .import-box { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
-.map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; margin: 8px 0; }
+.map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 8px; margin: 8px 0; }
 .map-row { display: flex; flex-direction: column; font-size: 14px; }
 .import-summary { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; }
 .table-wrap { overflow-x: auto; margin-top: 8px; }
@@ -274,4 +274,25 @@ input[type='color'] { padding: 2px; width: 40px; height: 34px; }
   .kind-btn { padding: 8px 18px; }
   .cat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .fab { right: 14px; padding: 12px 18px; }
+}
+
+/* ---- 帳簿 ---- */
+.ledger-select { font-weight: bold; max-width: 11em; padding: 4px 8px; }
+.ledger-field { display: flex; align-items: center; gap: 8px; }
+.ledger-field select { flex: 1; }
+.entry-ledger { flex: none; font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; max-width: 6em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 560px) {
+  .ledger-select { max-width: 7.5em; font-size: 14px; }
+}
+
+.preview select { max-width: 14em; }
+.month-label, .sync-badge { white-space: nowrap; }
+@media (max-width: 560px) {
+  .month-nav { gap: 2px; }
+  .month-nav button.small { padding: 4px 8px; }
+  .month-label { font-size: 15px; }
+  .sync-badge { font-size: 11.5px; padding: 2px 7px; }
+}
+@media (max-width: 400px) {
+  .ledger-select { max-width: 6em; }
 }

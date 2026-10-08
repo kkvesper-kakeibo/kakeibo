@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { evalAmount, KIND_LABEL, liveCategories, liveEntries, newId, stamp, yen, type Book, type Entry, type Kind } from '../lib/model'
+import { ALL_LEDGERS, evalAmount, KIND_LABEL, ledgerOf, liveCategories, liveEntries, liveLedgers, MAIN_LEDGER, newId, stamp, yen, type Book, type Entry, type Kind } from '../lib/model'
 import { addDays, parseYmd, ymd, jpDate } from '../lib/dates'
 
 interface Props {
@@ -9,22 +9,26 @@ interface Props {
   onSave: (e: Entry) => void
   onDelete: (e: Entry) => void
   onClose: () => void
+  /** 今見ている帳簿(すべての帳簿のときは ALL_LEDGERS) */
+  ledger: string
 }
 
 const isEntry = (x: Props['initial']): x is Entry => 'id' in x
 
 // 前回選んだカテゴリ(収支ごと)を、次の入力で最初から選んでおく
 const LAST_CAT = 'kakeibo.lastCategory.'
-const lastCat = (kind: Kind) => {
+const lastCat = (ledger: string, kind: Kind) => {
   try {
-    return localStorage.getItem(LAST_CAT + kind) ?? ''
+    return localStorage.getItem(`${LAST_CAT}${ledger}.${kind}`) ?? ''
   } catch {
     return ''
   }
 }
 
-export default function EntryForm({ book, initial, onSave, onDelete, onClose }: Props) {
+export default function EntryForm({ book, initial, onSave, onDelete, onClose, ledger }: Props) {
   const editing = isEntry(initial) ? initial : null
+  const ledgers = liveLedgers(book)
+  const [ledgerId, setLedgerId] = useState(editing ? ledgerOf(editing) : ledger !== ALL_LEDGERS && book.ledgers[ledger] ? ledger : (ledgers[0]?.id ?? MAIN_LEDGER))
   const [kind, setKind] = useState<Kind>(initial.kind ?? 'expense')
   const [date, setDate] = useState(initial.date)
   const [amountText, setAmountText] = useState(editing ? String(editing.amount) : '')
@@ -34,14 +38,14 @@ export default function EntryForm({ book, initial, onSave, onDelete, onClose }: 
   const [err, setErr] = useState('')
   const amountRef = useRef<HTMLInputElement>(null)
 
-  const cats = useMemo(() => liveCategories(book, kind).filter((c) => !c.hidden || c.id === categoryId), [book, kind, categoryId])
+  const cats = useMemo(() => liveCategories(book, kind, ledgerId).filter((c) => !c.hidden || c.id === categoryId), [book, kind, ledgerId, categoryId])
 
   // 収支を切り替えたら、その種類のカテゴリを選び直す
   useEffect(() => {
     if (cats.some((c) => c.id === categoryId)) return
-    const last = lastCat(kind)
+    const last = lastCat(ledgerId, kind)
     setCategoryId(cats.find((c) => c.id === last)?.id ?? cats[0]?.id ?? '')
-  }, [kind, cats, categoryId])
+  }, [kind, cats, categoryId, ledgerId])
 
   useEffect(() => {
     amountRef.current?.focus()
@@ -75,7 +79,7 @@ export default function EntryForm({ book, initial, onSave, onDelete, onClose }: 
       return
     }
     try {
-      localStorage.setItem(LAST_CAT + kind, categoryId)
+      localStorage.setItem(`${LAST_CAT}${ledgerId}.${kind}`, categoryId)
     } catch {
       /* 無視 */
     }
@@ -87,6 +91,7 @@ export default function EntryForm({ book, initial, onSave, onDelete, onClose }: 
       amount,
       categoryId,
       memo: memo.trim(),
+      ledgerId: ledgerId === MAIN_LEDGER ? undefined : ledgerId,
       updatedAt: stamp(),
     })
     if (again) {
@@ -127,6 +132,19 @@ export default function EntryForm({ book, initial, onSave, onDelete, onClose }: 
             閉じる
           </button>
         </div>
+
+        {ledgers.length > 1 && (
+          <div className="field ledger-field">
+            <span className="muted">帳簿</span>
+            <select value={ledgerId} onChange={(e) => (setLedgerId(e.target.value), setCategoryId(''))}>
+              {ledgers.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="field date-field">
           <button type="button" className="ghost small" onClick={() => setDate(ymd(addDays(parseYmd(date), -1)))} aria-label="前の日">
