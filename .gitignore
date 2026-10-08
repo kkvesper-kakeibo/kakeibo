@@ -1,0 +1,18 @@
+node_modules/
+dist/
+*.local
+*.tsbuildinfo
+
+# ローカル専用の設定
+.claude/
+
+# 家計簿のデータ(個人情報)は絶対にリポジトリへ入れない
+*.csv
+*.json.bak
+家計簿データ*.json
+家計簿_*.json
+_データ/
+*.zip
+
+# PC のフォルダの場所を含む手順書(公開しない)
+manual.html

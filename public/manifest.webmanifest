@@ -1,0 +1,16 @@
+{
+  "name": "家計簿",
+  "short_name": "家計簿",
+  "description": "毎日の収支を入力する家計簿(データは自分の Google ドライブと PC にだけ保存)",
+  "lang": "ja",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#15171b",
+  "theme_color": "#d9822b",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
