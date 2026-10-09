@@ -4,16 +4,24 @@
 //   最新/家計簿データ.json   … 変更のたびに上書き(アプリに戻せる形)
 //   最新/家計簿.csv          … 同じ内容を Excel で開ける形で
 //   履歴/家計簿データ_YYYY-MM-DD.json … 1日1ファイル(その日の最後の状態)。消さずに残す
-import { getDir, loadSavedRoot, permissionOf, readText, requestPermission, saveRoot, writeBlob } from './fs'
+import { canPickFolder as fsCanPickFolder, getDir, loadSavedRoot, permissionOf, readText, requestPermission, saveRoot, writeBlob } from './fs'
 import { bookToCsv } from './csv'
 import { parseBook, sortBook, type Book } from './model'
 import { ymd } from './dates'
 
-export { canPickFolder, pickRoot } from './fs'
+export { pickRoot } from './fs'
+
+/** スマホ・タブレット(Android / iPhone / iPad)。フォルダへのバックアップは PC だけで使う(ユーザー決定)
+ * スマホでは保存したファイルが増えてどれが最新か分かりにくくなるため、Google ドライブと端末内だけにする */
+export const isMobile = () =>
+  (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+
+export const canPickFolder = () => !isMobile() && fsCanPickFolder()
 
 export type FolderState = { handle: FileSystemDirectoryHandle; permission: 'granted' | 'denied' | 'prompt' } | null
 
 export async function loadFolder(): Promise<FolderState> {
+  if (isMobile()) return null // スマホでは、以前選んだフォルダがあっても使わない
   const handle = await loadSavedRoot().catch(() => undefined)
   if (!handle) return null
   return { handle, permission: await permissionOf(handle).catch(() => 'prompt' as const) }

@@ -121,7 +121,7 @@ export default function SettingsView({ api, book, theme, setTheme, ledger, weekS
             {api.backupError && <div className="msg error">{api.backupError}</div>}
           </>
         ) : (
-          <p className="muted">この端末のブラウザではフォルダへの自動保存ができません。下の「ファイルに書き出す」をお使いください。</p>
+          <p className="muted">フォルダへの自動バックアップは PC だけで行います。この端末のデータは Google ドライブに保存されています(手元に控えが必要なときは、下の「ファイルに書き出す」)。</p>
         )}
       </section>
 
