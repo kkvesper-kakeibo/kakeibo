@@ -1,4 +1,4 @@
-// グラフの画面: 内訳(ドーナツ)・月ごとの推移・カテゴリの推移・年ごとの比較
+// グラフの画面: 内訳(ドーナツ)・カテゴリの推移・月ごとの推移・年ごとの比較(この順に表示)
 import { useMemo, useState } from 'react'
 import { ALL_LEDGERS, KIND_LABEL, liveEntries, type Book, type Entry, type Kind } from '../lib/model'
 import { totalsOf } from '../lib/summary'
@@ -161,44 +161,6 @@ export default function GraphView({ book, ledger, ym, mode, setMode, onOpenMonth
       </section>
 
       <section className="card">
-        <h2>月ごとの収入と支出({mode === 'year' ? `${year}年` : `${jpYm(months[0])}〜${jpYm(months[11])}`})</h2>
-        <div className="legend-inline">
-          <span>
-            <i style={{ background: 'var(--income)' }} />
-            収入
-          </span>
-          <span>
-            <i style={{ background: 'var(--expense)' }} />
-            支出
-          </span>
-        </div>
-        <BarChart
-          labels={months.map(monthLabel)}
-          series={[
-            { key: 'income', name: '収入', color: 'var(--income)', values: monthTotals.map((t) => t.income) },
-            { key: 'expense', name: '支出', color: 'var(--expense)', values: monthTotals.map((t) => t.expense) },
-          ]}
-          highlight={months.indexOf(mode === 'year' ? thisYm : ym)}
-          onPick={(i) => onOpenMonth(months[i])}
-          tooltip={(i) => (
-            <>
-              <b>{jpYm(months[i])}</b>
-              <div>
-                収入 <Money value={monthTotals[i].income} kind="income" />
-              </div>
-              <div>
-                支出 <Money value={monthTotals[i].expense} kind="expense" />
-              </div>
-              <div>
-                収支 <Money value={monthTotals[i].income - monthTotals[i].expense} />
-              </div>
-            </>
-          )}
-        />
-        <p className="muted small-note">棒に触れると金額を表示します(もう一度押すとその月の明細を開きます)。</p>
-      </section>
-
-      <section className="card">
         <div className="breakdown-head">
           <h2>カテゴリの推移</h2>
           {catOptions.length > 0 && (
@@ -236,6 +198,44 @@ export default function GraphView({ book, ledger, ym, mode, setMode, onOpenMonth
         ) : (
           <p className="muted">この期間の{KIND_LABEL[kind]}はありません</p>
         )}
+      </section>
+
+      <section className="card">
+        <h2>月ごとの収入と支出({mode === 'year' ? `${year}年` : `${jpYm(months[0])}〜${jpYm(months[11])}`})</h2>
+        <div className="legend-inline">
+          <span>
+            <i style={{ background: 'var(--income)' }} />
+            収入
+          </span>
+          <span>
+            <i style={{ background: 'var(--expense)' }} />
+            支出
+          </span>
+        </div>
+        <BarChart
+          labels={months.map(monthLabel)}
+          series={[
+            { key: 'income', name: '収入', color: 'var(--income)', values: monthTotals.map((t) => t.income) },
+            { key: 'expense', name: '支出', color: 'var(--expense)', values: monthTotals.map((t) => t.expense) },
+          ]}
+          highlight={months.indexOf(mode === 'year' ? thisYm : ym)}
+          onPick={(i) => onOpenMonth(months[i])}
+          tooltip={(i) => (
+            <>
+              <b>{jpYm(months[i])}</b>
+              <div>
+                収入 <Money value={monthTotals[i].income} kind="income" />
+              </div>
+              <div>
+                支出 <Money value={monthTotals[i].expense} kind="expense" />
+              </div>
+              <div>
+                収支 <Money value={monthTotals[i].income - monthTotals[i].expense} />
+              </div>
+            </>
+          )}
+        />
+        <p className="muted small-note">棒に触れると金額を表示します(もう一度押すとその月の明細を開きます)。</p>
       </section>
 
       {years.length > 1 && (
