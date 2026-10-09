@@ -1,5 +1,5 @@
 // アプリ本体(画面のプログラム)だけをキャッシュする。家計簿のデータは一切キャッシュしない。
-const CACHE = 'kakeibo-shell-v1'
+const CACHE = 'kakeibo-shell-v2'
 
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (e) => {
