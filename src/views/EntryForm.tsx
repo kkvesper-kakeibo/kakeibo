@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ALL_LEDGERS, evalAmount, KIND_LABEL, ledgerOf, liveCategories, liveEntries, liveLedgers, MAIN_LEDGER, newId, stamp, yen, type Book, type Entry, type Kind } from '../lib/model'
+import { ALL_LEDGERS, evalAmount, KIND_LABEL, ledgerOf, liveCategories, liveEntries, liveLedgers, MAIN_LEDGER, newId, stamp, type Book, type Entry, type Kind } from '../lib/model'
 import { addDays, parseYmd, ymd, jpDate } from '../lib/dates'
+import Money from './Money'
 
 interface Props {
   book: Book
@@ -179,7 +180,7 @@ export default function EntryForm({ book, initial, onSave, onDelete, onClose, le
               aria-label="金額"
             />
           </div>
-          {isExpr && <div className="calc-result">= {amount === null ? '計算できません' : yen(amount)}</div>}
+          {isExpr && <div className="calc-result">= {amount === null ? '計算できません' : <Money value={amount} kind={kind} />}</div>}
           <div className="keypad">
             {['+', '-', '×', '÷', '=', '←', 'C'].map((k) => (
               <button key={k} type="button" className="ghost small" onClick={() => press(k)}>

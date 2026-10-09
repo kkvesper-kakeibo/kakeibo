@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { ALL_LEDGERS, KIND_LABEL, liveEntries, yen, type Book, type Entry, type Kind } from '../lib/model'
+import { ALL_LEDGERS, KIND_LABEL, liveEntries, type Book, type Entry, type Kind } from '../lib/model'
 import { byCategory, monthEntries, totalsOf } from '../lib/summary'
 import { WEEKDAYS, parseYmd } from '../lib/dates'
 import EntryRow from './EntryRow'
+import Money from './Money'
 
 interface Props {
   book: Book
@@ -74,7 +75,7 @@ export default function ListView({ book, ym, ledger, onEdit }: Props) {
                       <span style={{ width: `${pct}%`, background: cat?.color ?? '#999' }} />
                     </td>
                     <td className="ct-pct">{pct.toFixed(1)}%</td>
-                    <td className="ct-amt">{yen(c.total)}</td>
+                    <td className="ct-amt"><Money value={c.total} kind={breakdown} /></td>
                   </tr>
                 )
               })}
@@ -97,7 +98,7 @@ export default function ListView({ book, ym, ledger, onEdit }: Props) {
         </div>
         {(q || catFilter) && (
           <p className="muted">
-            {shown.length}件 ・ 支出 {yen(shownTotal.expense)} ・ 収入 {yen(shownTotal.income)}
+            {shown.length}件 ・ 支出 <Money value={shownTotal.expense} kind="expense" /> ・ 収入 <Money value={shownTotal.income} kind="income" />
           </p>
         )}
         {groups.length ? (
@@ -112,8 +113,8 @@ export default function ListView({ book, ym, ledger, onEdit }: Props) {
                     {d.getMonth() + 1}月{d.getDate()}日({WEEKDAYS[d.getDay()]})
                   </span>
                   <span className="muted">
-                    {!!t.income && <span className="income">+{yen(t.income)} </span>}
-                    {!!t.expense && <span className="expense">{yen(t.expense)}</span>}
+                    {!!t.income && <><Money value={t.income} kind="income" /> </>}
+                    {!!t.expense && <Money value={t.expense} kind="expense" />}
                   </span>
                 </div>
                 <ul className="entries">

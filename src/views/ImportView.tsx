@@ -2,9 +2,10 @@
 // 列の並びはアプリごとに違うので、どの列が日付・金額…かを画面で選ぶ(見出しから自動で推測する)
 import { useMemo, useState } from 'react'
 import { decodeText, parseCsv } from '../lib/csv'
-import { ALL_LEDGERS, KIND_LABEL, ledgerOf, liveCategories, liveEntries, liveLedgers, MAIN_LEDGER, newId, stamp, yen, type Book, type Category, type Entry, type Kind } from '../lib/model'
+import { ALL_LEDGERS, KIND_LABEL, ledgerOf, liveCategories, liveEntries, liveLedgers, MAIN_LEDGER, newId, stamp, type Book, type Category, type Entry, type Kind } from '../lib/model'
 import { readKakeboFiles, type KakeboBackup } from '../lib/kakebo'
 import KakeboImport from './KakeboImport'
+import Money from './Money'
 
 interface Props {
   book: Book
@@ -369,7 +370,7 @@ export default function ImportView({ book, update, current }: Props) {
                     <td>{p.date || '—'}</td>
                     <td>{KIND_LABEL[p.kind]}</td>
                     <td>{p.catName}</td>
-                    <td className="num">{p.ok ? yen(p.amount) : '—'}</td>
+                    <td className="num">{p.ok ? <Money value={p.amount} kind={p.kind} /> : '—'}</td>
                     <td>{p.ok ? (p.dup ? `(重複) ${p.memo}` : p.memo) : p.reason}</td>
                   </tr>
                 ))}

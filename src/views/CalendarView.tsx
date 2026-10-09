@@ -1,8 +1,9 @@
 import { holidayName } from '../lib/holidays'
 import { WEEKDAYS, monthGrid, ymd } from '../lib/dates'
-import { yen, type Book, type Entry } from '../lib/model'
+import { type Book, type Entry } from '../lib/model'
 import type { DayTotals } from '../lib/summary'
 import EntryRow from './EntryRow'
+import Money from './Money'
 
 interface Props {
   book: Book
@@ -17,8 +18,6 @@ interface Props {
   weekStart: number
   showLedger: boolean
 }
-
-const short = (n: number) => (n >= 1_000_000 ? `${Math.round(n / 10_000).toLocaleString()}万` : n.toLocaleString('ja-JP'))
 
 export default function CalendarView({ book, year, month0, totals, byDay, selected, onSelect, onEdit, onAdd, weekStart, showLedger }: Props) {
   const grid = monthGrid(year, month0, weekStart).days
@@ -55,8 +54,8 @@ export default function CalendarView({ book, year, month0, totals, byDay, select
             return (
               <button key={key} type="button" className={cls} onClick={() => onSelect(key)} onDoubleClick={() => onAdd(key)} title={hol}>
                 <span className="daynum">{d.getDate()}</span>
-                {t?.income ? <span className="amt income">+{short(t.income)}</span> : null}
-                {t?.expense ? <span className="amt expense">{short(t.expense)}</span> : null}
+                {t?.income ? <Money className="amt" value={t.income} kind="income" short /> : null}
+                {t?.expense ? <Money className="amt" value={t.expense} kind="expense" short /> : null}
               </button>
             )
           })}
@@ -75,8 +74,8 @@ export default function CalendarView({ book, year, month0, totals, byDay, select
         </div>
         {selT && (
           <div className="day-sum">
-            {!!selT.income && <span className="income">収入 {yen(selT.income)}</span>}
-            {!!selT.expense && <span className="expense">支出 {yen(selT.expense)}</span>}
+            {!!selT.income && <span>収入 <Money value={selT.income} kind="income" /></span>}
+            {!!selT.expense && <span>支出 <Money value={selT.expense} kind="expense" /></span>}
           </div>
         )}
         {sel.length ? (

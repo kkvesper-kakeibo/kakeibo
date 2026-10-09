@@ -126,7 +126,7 @@ input[type='color'] { padding: 2px; width: 40px; height: 34px; }
 
 .month-sum { display: flex; gap: 8px; padding: 10px 16px 0; max-width: 1200px; width: 100%; margin: 0 auto; }
 .month-sum > div { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; display: flex; flex-direction: column; }
-.month-sum span { font-size: 12px; }
+.month-sum > div > span { font-size: 12px; }
 .month-sum b { font-size: 18px; font-variant-numeric: tabular-nums; }
 .main { flex: 1; padding: 10px 16px 16px; max-width: 1200px; width: 100%; margin: 0 auto; }
 
@@ -178,8 +178,8 @@ input[type='color'] { padding: 2px; width: 40px; height: 34px; }
 .entry-cat { flex: none; font-size: 14px; }
 .entry-memo { flex: 1; color: var(--muted); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .entry-amt { font-variant-numeric: tabular-nums; font-weight: bold; white-space: nowrap; }
-.entry-amt.income { color: var(--income); }
-.entry-amt.expense { color: var(--text); }
+
+
 
 /* ---- 明細 ---- */
 .list-layout { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 14px; align-items: start; }
@@ -296,3 +296,8 @@ input[type='color'] { padding: 2px; width: 40px; height: 34px; }
 @media (max-width: 400px) {
   .ledger-select { max-width: 6em; }
 }
+
+/* ---- 金額: 支出は赤(▲付き)、収入は青で統一 ---- */
+.money { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.money.income { color: var(--income); }
+.money.expense { color: var(--expense); }

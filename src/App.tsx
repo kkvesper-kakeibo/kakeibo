@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useBook } from './lib/useBook'
-import { ALL_LEDGERS, liveLedgers, MAIN_LEDGER, stamp, yen, type Entry, type Kind } from './lib/model'
+import { ALL_LEDGERS, liveLedgers, MAIN_LEDGER, stamp, type Entry, type Kind } from './lib/model'
 import { dayTotals, indexByDay, monthEntries, totalsOf } from './lib/summary'
 import { ymd } from './lib/dates'
 import { useNewerVersion, versionLabel } from './lib/version'
@@ -8,6 +8,7 @@ import CalendarView from './views/CalendarView'
 import ListView from './views/ListView'
 import EntryForm from './views/EntryForm'
 import SettingsView, { type Theme } from './views/SettingsView'
+import Money from './views/Money'
 
 type Tab = 'calendar' | 'list' | 'settings'
 const THEME = 'kakeibo.theme'
@@ -208,15 +209,15 @@ export default function App() {
         <div className="month-sum">
           <div>
             <span className="muted">収入</span>
-            <b className="income">{yen(monthT.income)}</b>
+            <b><Money value={monthT.income} kind="income" /></b>
           </div>
           <div>
             <span className="muted">支出</span>
-            <b className="expense">{yen(monthT.expense)}</b>
+            <b><Money value={monthT.expense} kind="expense" /></b>
           </div>
           <div>
             <span className="muted">収支</span>
-            <b className={monthT.income - monthT.expense < 0 ? 'expense' : 'income'}>{yen(monthT.income - monthT.expense)}</b>
+            <b><Money value={monthT.income - monthT.expense} /></b>
           </div>
         </div>
       )}
