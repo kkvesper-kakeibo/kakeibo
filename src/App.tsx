@@ -3,14 +3,16 @@ import { useBook } from './lib/useBook'
 import { ALL_LEDGERS, liveLedgers, MAIN_LEDGER, stamp, type Entry, type Kind } from './lib/model'
 import { dayTotals, indexByDay, monthEntries, totalsOf } from './lib/summary'
 import { ymd } from './lib/dates'
-import { useNewerVersion, versionLabel } from './lib/version'
+import { buildInfo, useNewerVersion, versionLabel } from './lib/version'
+import { useSwipe } from './lib/useSwipe'
+import YearView from './views/YearView'
 import CalendarView from './views/CalendarView'
 import ListView from './views/ListView'
 import EntryForm from './views/EntryForm'
 import SettingsView, { type Theme } from './views/SettingsView'
 import Money from './views/Money'
 
-type Tab = 'calendar' | 'list' | 'settings'
+type Tab = 'calendar' | 'list' | 'year' | 'settings'
 const THEME = 'kakeibo.theme'
 const TAB = 'kakeibo.tab'
 const LEDGER = 'kakeibo.ledger'
@@ -65,6 +67,7 @@ export default function App() {
   }
   const go = (t: Tab) => {
     setTab(t)
+    setSlide('')
     lsSet(TAB, t)
   }
 
@@ -75,7 +78,20 @@ export default function App() {
     setYm(nym)
     // 選んでいる日も、その月に移す(今月なら今日)
     setSelected(nym === today.slice(0, 7) ? today : `${nym}-01`)
+    setSlide(d > 0 ? 'next' : 'prev')
   }
+  // 年の画面: 年を移す(月はそのまま)
+  const shiftYear = (d: number) => {
+    const nym = `${y + d}-${String(m).padStart(2, '0')}`
+    setYm(nym)
+    setSelected(nym === today.slice(0, 7) ? today : `${nym}-01`)
+    setSlide(d > 0 ? 'next' : 'prev')
+  }
+  const shift = (d: number) => (tab === 'year' ? shiftYear(d) : shiftMonth(d))
+  // 月・年を移したときの動き(左右に少しずらして表示)
+  const [slide, setSlide] = useState<'next' | 'prev' | ''>('')
+  // スマホ: 左右にスワイプで月(年の画面では年)を移す
+  const swipe = useSwipe((dir) => tab !== 'settings' && shift(dir === 'left' ? 1 : -1))
 
   const byDay = useMemo(() => (book ? indexByDay(book, ledger) : new Map<string, Entry[]>()), [book, ledger])
   const totals = useMemo(() => dayTotals(byDay), [byDay])
@@ -146,13 +162,18 @@ export default function App() {
         )}
         {tab !== 'settings' && (
           <div className="month-nav">
-            <button type="button" className="ghost small" onClick={() => shiftMonth(-1)} aria-label="前の月">
+            <button type="button" className="ghost small" onClick={() => shift(-1)} aria-label={tab === 'year' ? '前の年' : '前の月'}>
               ‹
             </button>
-            <button type="button" className="ghost small month-label" onClick={() => (setYm(today.slice(0, 7)), setSelected(today))} title="今月に戻る">
-              {y}年{m}月
+            <button
+              type="button"
+              className="ghost small month-label"
+              onClick={() => (setYm(today.slice(0, 7)), setSelected(today))}
+              title={tab === 'year' ? '今年に戻る' : '今月に戻る'}
+            >
+              {tab === 'year' ? `${y}年` : `${y}年${m}月`}
             </button>
-            <button type="button" className="ghost small" onClick={() => shiftMonth(1)} aria-label="次の月">
+            <button type="button" className="ghost small" onClick={() => shift(1)} aria-label={tab === 'year' ? '次の年' : '次の月'}>
               ›
             </button>
           </div>
@@ -205,7 +226,7 @@ export default function App() {
         </div>
       )}
 
-      {tab !== 'settings' && (
+      {(tab === 'calendar' || tab === 'list') && (
         <div className="month-sum">
           <div>
             <span className="muted">収入</span>
@@ -222,7 +243,8 @@ export default function App() {
         </div>
       )}
 
-      <main className="main">
+      <main className="main" {...(tab !== 'settings' ? swipe : {})}>
+        <div key={tab === 'settings' ? 'settings' : `${tab}-${tab === 'year' ? y : ym}`} className={`slide ${slide}`}>
         {tab === 'calendar' && (
           <CalendarView
             book={book}
@@ -242,12 +264,30 @@ export default function App() {
           />
         )}
         {tab === 'list' && <ListView book={book} ym={ym} ledger={ledger} onEdit={setForm} />}
+        {tab === 'year' && (
+          <YearView
+            book={book}
+            year={y}
+            ledger={ledger}
+            onPickMonth={(nym) => {
+              setYm(nym)
+              setSelected(nym === today.slice(0, 7) ? today : `${nym}-01`)
+              setSlide('')
+              go('list')
+            }}
+          />
+        )}
         {tab === 'settings' && <SettingsView api={api} book={book} theme={theme} setTheme={setTheme} ledger={ledger} weekStart={weekStart} setWeekStart={setWeekStart} />}
+        </div>
+        <p className="app-version">
+          家計簿 {versionLabel}({buildInfo.built} 公開)
+        </p>
       </main>
 
-      {tab !== 'settings' && (
-        <button type="button" className="fab" onClick={() => setForm({ date: tab === 'calendar' ? selected : today })} title="入力(N キー)">
-          ＋ 入力
+      {/* カレンダーでは日の欄の「＋ この日に入力」を使う。明細の画面には日の欄が無いので、今日の分を入力するボタンを出す */}
+      {tab === 'list' && (
+        <button type="button" className="fab" onClick={() => setForm({ date: today })} title="今日の分を入力(N キー)">
+          ＋ 今日の分を入力
         </button>
       )}
 
@@ -256,6 +296,7 @@ export default function App() {
           [
             ['calendar', 'カレンダー'],
             ['list', '明細'],
+            ['year', '年'],
             ['settings', '設定'],
           ] as [Tab, string][]
         ).map(([t, label]) => (

@@ -4,7 +4,7 @@ import { canPickFolder, pickRoot } from '../lib/backup'
 import { bookToCsv, downloadText } from '../lib/csv'
 import { ALL_LEDGERS, emptyBook, KIND_LABEL, ledgerOf, liveCategories, liveEntries, liveLedgers, MAIN_LEDGER, mergeBooks, newId, parseBook, sameBook, sortBook, stamp, type Book, type Kind } from '../lib/model'
 import { ymd } from '../lib/dates'
-import { versionDetail } from '../lib/version'
+import { buildInfo, useNewerVersion } from '../lib/version'
 import ImportView from './ImportView'
 import { sortCategoriesByUse } from '../lib/kakebo'
 
@@ -45,6 +45,7 @@ export default function SettingsView({ api, book, theme, setTheme, ledger, weekS
 
   return (
     <div className="settings">
+      <AboutCard />
       <section className="card">
         <h2>Google ドライブとの同期</h2>
         <p className="muted">
@@ -171,7 +172,7 @@ export default function SettingsView({ api, book, theme, setTheme, ledger, weekS
             </button>
           ))}
         </div>
-        <p className="muted small-note">{versionDetail}</p>
+
       </section>
     </div>
   )
@@ -368,6 +369,32 @@ function CategoryEditor({ api, book, current }: { api: BookApi; book: Book; curr
           追加
         </button>
       </div>
+    </section>
+  )
+}
+
+/** ヴァージョンの表示(いま使っている版と、新しい版が出ているか) */
+function AboutCard() {
+  const newer = useNewerVersion()
+  return (
+    <section className="card about">
+      <h2>このアプリについて</h2>
+      <div className="about-version">
+        家計簿 <b>ver {buildInfo.version}</b>
+      </div>
+      <p className="muted">
+        公開日 {buildInfo.built} ・ ビルド {buildInfo.commit}
+      </p>
+      {newer ? (
+        <div className="msg error">
+          新しい版(ver {newer.version}・{newer.built})が出ています。
+          <button type="button" className="small" onClick={() => location.reload()}>
+            再読み込みして更新
+          </button>
+        </div>
+      ) : (
+        <p className="muted small-note">新しい版が出ると、ここと画面上部にお知らせが出ます(再読み込みするだけで更新できます)。</p>
+      )}
     </section>
   )
 }

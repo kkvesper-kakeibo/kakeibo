@@ -301,3 +301,34 @@ input[type='color'] { padding: 2px; width: 40px; height: 34px; }
 .money { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .money.income { color: var(--income); }
 .money.expense { color: var(--expense); }
+
+/* ---- 月・年を移したときの動き ---- */
+.slide.next { animation: slide-next 0.2s ease-out; }
+.slide.prev { animation: slide-prev 0.2s ease-out; }
+@keyframes slide-next { from { opacity: 0.3; transform: translateX(40px); } to { opacity: 1; transform: none; } }
+@keyframes slide-prev { from { opacity: 0.3; transform: translateX(-40px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .slide.next, .slide.prev { animation: none; } }
+
+/* ---- ヴァージョン ---- */
+.app-version { text-align: center; color: var(--muted); font-size: 12.5px; margin: 18px 0 70px; }
+.about-version { font-size: 20px; }
+.about-version b { color: var(--accent); }
+
+/* ---- 年 ---- */
+.year-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; max-width: 900px; margin: 0 auto; }
+.year-sum { padding: 0; }
+.year-table { width: 100%; border-collapse: collapse; }
+.year-table th { font-size: 13px; color: var(--muted); font-weight: normal; text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.year-table th.num, .year-table td.num { text-align: right; }
+.year-table td { padding: 9px 6px; border-bottom: 1px solid var(--grid); font-size: 15px; }
+.year-table tbody tr { cursor: pointer; }
+.year-table tbody tr:hover { background: var(--other); }
+.year-table tr.empty td { opacity: 0.55; }
+.year-table tr.this-month .ym-cell { color: var(--accent); font-weight: bold; }
+.ym-cell { white-space: nowrap; width: 3.5em; }
+.exp-cell { position: relative; }
+.exp-bar { position: absolute; right: 6px; bottom: 3px; height: 3px; border-radius: 2px; background: var(--expense); opacity: 0.45; }
+@media (max-width: 560px) {
+  .year-table td { font-size: 13.5px; padding: 8px 3px; }
+  .tabbar button { font-size: 14px; }
+}
