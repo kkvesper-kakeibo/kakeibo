@@ -355,3 +355,45 @@ input[type='color'] { padding: 2px; width: 40px; height: 34px; }
 /* 合計の枠: 文字を大きくしている端末でも収まるよう、入りきらなければ折り返す */
 .month-sum { flex-wrap: wrap; }
 .month-sum > div { flex: 1 1 6.5em; min-width: 0; }
+
+/* ---- グラフ ---- */
+.graph-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; max-width: 900px; margin: 0 auto; }
+.graph-filters { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { background: transparent; color: var(--muted); border-radius: 0; padding: 5px 18px; font-size: 14px; }
+.seg button.on { background: var(--accent); color: var(--accent-text); font-weight: bold; }
+.chart { position: relative; width: 100%; user-select: none; -webkit-user-select: none; }
+.chart svg { display: block; overflow: visible; }
+.chart .grid { stroke: var(--grid); stroke-width: 1; }
+.chart .axis-base { stroke: var(--border); stroke-width: 1; }
+.chart .tick { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart .tick-strong { fill: var(--accent); font-weight: bold; }
+.chart .band-highlight { fill: var(--other); }
+.chart .band-active { fill: var(--selected); opacity: 0.7; }
+.chart-tip {
+  position: absolute; top: 2px; transform: translateX(-50%); z-index: 3; pointer-events: none;
+  background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 13px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); white-space: nowrap; line-height: 1.55;
+}
+.chart-tip-hint { color: var(--muted); font-size: 11px; }
+.legend-inline { display: flex; gap: 14px; font-size: 13px; color: var(--muted); margin: -2px 0 10px; }
+.legend-inline i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.breakdown-graph { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.donut { position: relative; flex: none; margin: 0 auto; }
+.donut .donut-track { stroke: var(--other); }
+.donut .donut-gap { stroke: var(--card); stroke-width: 2; }
+.donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-size: 12px; }
+.donut-center b { font-size: 15px; }
+.legend-list { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 220px; }
+.legend-row {
+  width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 8px; align-items: center;
+  background: transparent; color: var(--text); border-radius: 6px; padding: 6px 6px; text-align: left; border-bottom: 1px solid var(--grid);
+}
+.legend-row:disabled { opacity: 1; cursor: default; }
+.legend-row.on { background: var(--selected); }
+.legend-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend-pct { color: var(--muted); font-size: 13px; }
+@media (max-width: 560px) {
+  .tabbar button { font-size: 13px; padding: 12px 0; }
+  .legend-list { min-width: 0; flex: 1 1 100%; }
+}

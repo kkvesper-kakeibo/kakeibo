@@ -6,17 +6,19 @@ import { ymd } from './lib/dates'
 import { buildInfo, useNewerVersion, versionLabel } from './lib/version'
 import { useSwipe } from './lib/useSwipe'
 import YearView from './views/YearView'
+import GraphView, { type GraphMode } from './views/GraphView'
 import CalendarView from './views/CalendarView'
 import ListView from './views/ListView'
 import EntryForm from './views/EntryForm'
 import SettingsView, { type Theme } from './views/SettingsView'
 import Money from './views/Money'
 
-type Tab = 'calendar' | 'list' | 'year' | 'settings'
+type Tab = 'calendar' | 'list' | 'graph' | 'year' | 'settings'
 const THEME = 'kakeibo.theme'
 const TAB = 'kakeibo.tab'
 const LEDGER = 'kakeibo.ledger'
 const WEEK_START = 'kakeibo.weekStart'
+const GRAPH_MODE = 'kakeibo.graphMode'
 
 const lsGet = (k: string) => {
   try {
@@ -44,6 +46,11 @@ export default function App() {
   const [theme, setThemeState] = useState<Theme>(() => (lsGet(THEME) as Theme) || 'auto')
   const newer = useNewerVersion()
   const [ledgerPick, setLedgerPick] = useState(() => lsGet(LEDGER) || MAIN_LEDGER)
+  const [graphMode, setGraphModeState] = useState<GraphMode>(() => (lsGet(GRAPH_MODE) as GraphMode) || 'month')
+  const setGraphMode = (g: GraphMode) => {
+    setGraphModeState(g)
+    lsSet(GRAPH_MODE, g)
+  }
   const [weekStart, setWeekStartState] = useState(() => Number(lsGet(WEEK_START) ?? '1'))
   const ledgers = useMemo(() => (book ? liveLedgers(book) : []), [book])
   // 選んでいた帳簿が消されていたら最初の帳簿に戻す
@@ -87,7 +94,9 @@ export default function App() {
     setSelected(nym === today.slice(0, 7) ? today : `${nym}-01`)
     setSlide(d > 0 ? 'next' : 'prev')
   }
-  const shift = (d: number) => (tab === 'year' ? shiftYear(d) : shiftMonth(d))
+  // 年の画面と、グラフを「年」で見ているときは年単位で移す
+  const byYear = tab === 'year' || (tab === 'graph' && graphMode === 'year')
+  const shift = (d: number) => (byYear ? shiftYear(d) : shiftMonth(d))
   // 月・年を移したときの動き(左右に少しずらして表示)
   const [slide, setSlide] = useState<'next' | 'prev' | ''>('')
   // スマホ: 左右にスワイプで月(年の画面では年)を移す
@@ -162,18 +171,18 @@ export default function App() {
         )}
         {tab !== 'settings' && (
           <div className="month-nav">
-            <button type="button" className="ghost small" onClick={() => shift(-1)} aria-label={tab === 'year' ? '前の年' : '前の月'}>
+            <button type="button" className="ghost small" onClick={() => shift(-1)} aria-label={byYear ? '前の年' : '前の月'}>
               ‹
             </button>
             <button
               type="button"
               className="ghost small month-label"
               onClick={() => (setYm(today.slice(0, 7)), setSelected(today))}
-              title={tab === 'year' ? '今年に戻る' : '今月に戻る'}
+              title={byYear ? '今年に戻る' : '今月に戻る'}
             >
-              {tab === 'year' ? `${y}年` : `${y}年${m}月`}
+              {byYear ? `${y}年` : `${y}年${m}月`}
             </button>
-            <button type="button" className="ghost small" onClick={() => shift(1)} aria-label={tab === 'year' ? '次の年' : '次の月'}>
+            <button type="button" className="ghost small" onClick={() => shift(1)} aria-label={byYear ? '次の年' : '次の月'}>
               ›
             </button>
           </div>
@@ -244,7 +253,7 @@ export default function App() {
       )}
 
       <main className="main" {...(tab !== 'settings' ? swipe : {})}>
-        <div key={tab === 'settings' ? 'settings' : `${tab}-${tab === 'year' ? y : ym}`} className={`slide ${slide}`}>
+        <div key={tab === 'settings' ? 'settings' : `${tab}-${byYear ? y : ym}-${tab === 'graph' ? graphMode : ''}`} className={`slide ${slide}`}>
         {tab === 'calendar' && (
           <CalendarView
             book={book}
@@ -264,6 +273,26 @@ export default function App() {
           />
         )}
         {tab === 'list' && <ListView book={book} ym={ym} ledger={ledger} onEdit={setForm} />}
+        {tab === 'graph' && (
+          <GraphView
+            book={book}
+            ledger={ledger}
+            ym={ym}
+            mode={graphMode}
+            setMode={(g) => (setGraphMode(g), setSlide(''))}
+            onOpenMonth={(nym) => {
+              setYm(nym)
+              setSelected(nym === today.slice(0, 7) ? today : `${nym}-01`)
+              go('list')
+            }}
+            onOpenYear={(ny) => {
+              const nym = `${ny}-${String(m).padStart(2, '0')}`
+              setYm(nym)
+              setSelected(nym === today.slice(0, 7) ? today : `${nym}-01`)
+              go('year')
+            }}
+          />
+        )}
         {tab === 'year' && (
           <YearView
             book={book}
@@ -296,6 +325,7 @@ export default function App() {
           [
             ['calendar', 'カレンダー'],
             ['list', '明細'],
+            ['graph', 'グラフ'],
             ['year', '年'],
             ['settings', '設定'],
           ] as [Tab, string][]
