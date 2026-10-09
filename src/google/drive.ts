@@ -103,13 +103,24 @@ export async function saveRemote(token: AccessToken, st: RemoteState, book: Book
   st.fileId = (await createFile(token, { name: BOOK_NAME, parents: [folder], mimeType: 'application/json', appProperties: { kakeiboBook: '1' } }, body)).id
 }
 
-/** 1日1回、その日の控えをドライブの「家計簿アプリ/履歴」に残す(同じ日の控えがあれば何もしない) */
-export async function saveDailySnapshot(token: AccessToken, st: RemoteState, book: Book, date: string): Promise<boolean> {
-  const exists = await findFiles(token, `appProperties has { key='kakeiboSnapshot' and value='${date}' }`)
-  if (exists.length) return false
-  const folder = await ensureFolder(token, st)
-  let hist = (await findFiles(token, `appProperties has { key='kakeiboHistory' and value='1' } and '${folder}' in parents`))[0]?.id
-  hist ??= (await createFile(token, { name: '履歴', parents: [folder], mimeType: 'application/vnd.google-apps.folder', appProperties: { kakeiboHistory: '1' } })).id
-  await createFile(token, { name: `家計簿データ_${date}.json`, parents: [hist], mimeType: 'application/json', appProperties: { kakeiboSnapshot: date } }, JSON.stringify(sortBook(book)))
-  return true
+/** ドライブが自動で残す「以前の版」は、ドライブの容量を使う(初期設定では 30 日・最大 100 版)。
+ * 新しいものから keep 版だけ残し、それより古い版を消す(いちばん新しい版=今の内容は必ず残る)。
+ * 日ごとの控えは PC のバックアップフォルダに残すので、ドライブには残さない(ユーザー決定) */
+export async function pruneRevisions(token: AccessToken, st: RemoteState, keep: number): Promise<number> {
+  if (!st.fileId) return 0
+  const res = await call(token, `${API}/files/${st.fileId}/revisions?fields=revisions(id,modifiedTime,keepForever)&pageSize=200`)
+  const list = ((await res.json()) as { revisions?: { id: string; modifiedTime: string; keepForever?: boolean }[] }).revisions ?? []
+  const old = list.sort((a, b) => a.modifiedTime.localeCompare(b.modifiedTime)).slice(0, Math.max(0, list.length - keep))
+  let n = 0
+  for (const r of old) {
+    if (r.keepForever) continue // 手動で「削除しない」にした版は残す
+    try {
+      await call(token, `${API}/files/${st.fileId}/revisions/${r.id}`, { method: 'DELETE' })
+      n++
+    } catch (e) {
+      if (e instanceof AuthExpiredError) throw e
+      break // 消せない版があれば、次の機会に
+    }
+  }
+  return n
 }

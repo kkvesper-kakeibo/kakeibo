@@ -5,26 +5,26 @@
 // - 同期は「合わせる」だけなので、PC とスマホで別々に入力しても両方残る
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { requestAccessToken, revokeToken, type AccessToken } from '../google/auth'
-import { AuthExpiredError, loadRemote, saveDailySnapshot, saveRemote, SCOPE_DRIVE_FILE, type RemoteState } from '../google/drive'
+import { AuthExpiredError, loadRemote, pruneRevisions, saveRemote, SCOPE_DRIVE_FILE, type RemoteState } from '../google/drive'
 import { emptyBook, mergeBooks, sameBook, type Book } from './model'
 import { idbGet, idbSet } from './idb'
 import { allowFolder, loadFolder, readBackup, writeBackup, type FolderState } from './backup'
-import { ymd } from './dates'
 
 const BOOK = 'book'
 const DIRTY = 'dirty' // ドライブへまだ送っていない変更がある
 const REMOTE = 'remote' // ドライブ上のファイルの場所
 const SYNCED_AT = 'syncedAt'
-const SNAPSHOT_DAY = 'snapshotDay'
+const PRUNED_AT = 'prunedAt' // ドライブの以前の版を整理した時刻
+const KEEP_REVISIONS = 10
 const LOGGED_IN = 'kakeibo.loggedIn' // 一度許可した端末では、2回目から確認画面を出さない
 
 /** 開発用の架空ドライブ(?demo)。本番では使われない */
 export interface RemoteApi {
   load(token: AccessToken, st: RemoteState): Promise<Book | null>
   save(token: AccessToken, st: RemoteState, book: Book): Promise<void>
-  snapshot(token: AccessToken, st: RemoteState, book: Book, date: string): Promise<boolean>
+  prune(token: AccessToken, st: RemoteState, keep: number): Promise<number>
 }
-const realRemote: RemoteApi = { load: loadRemote, save: saveRemote, snapshot: saveDailySnapshot }
+const realRemote: RemoteApi = { load: loadRemote, save: saveRemote, prune: pruneRevisions }
 const remoteApi = (): RemoteApi => (globalThis as { __kakeiboDemoRemote?: RemoteApi }).__kakeiboDemoRemote ?? realRemote
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -131,10 +131,14 @@ export function useBook() {
         const local = bookRef.current ?? emptyBook()
         const merged = remote ? mergeBooks(remote, local) : local
         if (!remote || !sameBook(merged, remote)) await api.save(t, st, merged)
-        const today = ymd(new Date())
-        if ((await idbGet<string>(SNAPSHOT_DAY)) !== today) {
-          await api.snapshot(t, st, merged, today)
-          await idbSet(SNAPSHOT_DAY, today)
+        // ドライブの以前の版が増えすぎないよう、1時間に1回まで整理する(失敗しても同期は続ける)
+        if (Date.now() - ((await idbGet<number>(PRUNED_AT)) ?? 0) > 3600_000) {
+          await api.prune(t, st, KEEP_REVISIONS).then(
+            () => idbSet(PRUNED_AT, Date.now()),
+            (e) => {
+              if (e instanceof AuthExpiredError) throw e
+            },
+          )
         }
         await idbSet(REMOTE, st)
         // 同期中に入力された変更も残す

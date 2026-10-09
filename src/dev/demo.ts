@@ -73,7 +73,6 @@ export async function installDemo() {
   }
 
   // 架空のドライブ
-  const snapshots: string[] = []
   const remote: RemoteApi = {
     async load() {
       log.push('load')
@@ -84,10 +83,9 @@ export async function installDemo() {
       log.push('save')
       localStorage.setItem(REMOTE, JSON.stringify(sortBook(book)))
     },
-    async snapshot(_t, _st, _b, date) {
-      log.push(`snapshot ${date}`)
-      snapshots.push(date)
-      return true
+    async prune(_t, _st, keep) {
+      log.push(`prune ${keep}`)
+      return 0
     },
   }
   w.__kakeiboDemoRemote = remote
