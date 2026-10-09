@@ -3,7 +3,7 @@
   "short_name": "家計簿",
   "description": "毎日の収支を入力する家計簿(データは自分の Google ドライブと PC にだけ保存)",
   "lang": "ja",
-  "id": "./",
+  "id": "/kakeibo/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
