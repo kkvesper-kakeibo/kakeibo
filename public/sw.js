@@ -31,7 +31,8 @@ self.addEventListener('fetch', (e) => {
     return
   }
 
-  if (url.pathname.includes('/assets/') || /\.(png|webmanifest)$/.test(url.pathname)) {
+  // インストール用の設定ファイル(manifest)は保存しない(識別名などを直したとき、古いものが残らないように)
+  if (url.pathname.includes('/assets/') || /\.png$/.test(url.pathname)) {
     // ファイル名にハッシュが付いた JS/CSS とアイコン: キャッシュ優先
     e.respondWith(
       caches.match(req).then(
