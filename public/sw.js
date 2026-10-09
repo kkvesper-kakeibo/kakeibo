@@ -18,15 +18,18 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET' || url.origin !== self.location.origin) return
 
   if (req.mode === 'navigate') {
-    // ページ本体: まずネットから最新を取り、つながらない時だけキャッシュ
+    // ページ本体: まずネットから最新を取り、つながらない時・公開先が止まっている時(404 など)はキャッシュ。
+    // 正常に取れた時だけ保存する(公開先のエラーのページで、保存済みのアプリを上書きしないように)
+    const cached = () => caches.match(req).then((r) => r || caches.match('./'))
     e.respondWith(
       fetch(req)
         .then((res) => {
+          if (!res.ok) return cached().then((r) => r || res)
           const copy = res.clone()
           caches.open(CACHE).then((c) => c.put(req, copy))
           return res
         })
-        .catch(() => caches.match(req).then((r) => r || caches.match('./'))),
+        .catch(() => cached()),
     )
     return
   }

@@ -17,9 +17,9 @@ if errorlevel 1 (
   exit /b 1
 )
 echo.
-echo ブラウザで http://localhost:5176/kakeibo/ が開きます。使い終わったら、この黒い画面を閉じてください。
+echo ブラウザで http://localhost:5177/kakeibo/ が開きます。使い終わったら、この黒い画面を閉じてください。
 echo.
-call npx vite preview --port 5176 --strictPort --open /kakeibo/
+call npx vite preview --port 5177 --strictPort --open /kakeibo/
 echo.
-echo 起動できませんでした。すでに別の画面で起動している場合(お試し起動.bat を含む)は、そちらを閉じてからもう一度お試しください。
+echo 起動できませんでした。すでに別の画面で起動している場合(PCだけで使う_3アプリ.bat を含む)は、そちらを閉じてからもう一度お試しください。
 pause
