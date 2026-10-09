@@ -34,19 +34,19 @@ export default function YearView({ book, year, ledger, onPickMonth }: Props) {
     <div className="year-layout">
       <div className="month-sum year-sum">
         <div>
-          <span className="muted">{year}年の収入</span>
+          <span className="muted">年間の収入</span>
           <b>
             <Money value={total.income} kind="income" />
           </b>
         </div>
         <div>
-          <span className="muted">{year}年の支出</span>
+          <span className="muted">年間の支出</span>
           <b>
             <Money value={total.expense} kind="expense" />
           </b>
         </div>
         <div>
-          <span className="muted">{year}年の収支</span>
+          <span className="muted">年間の収支</span>
           <b>
             <Money value={total.income - total.expense} />
           </b>

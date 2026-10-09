@@ -332,3 +332,26 @@ input[type='color'] { padding: 2px; width: 40px; height: 34px; }
   .year-table td { font-size: 13.5px; padding: 8px 3px; }
   .tabbar button { font-size: 14px; }
 }
+
+/* ---- カテゴリ別の表: スマホでは2段にして画面内に収める ---- */
+.ct-name { overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 560px) {
+  .cat-table, .cat-table tbody { display: block; }
+  .cat-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'name amt' 'bar pct';
+    column-gap: 10px;
+    padding: 6px 2px;
+    border-bottom: 1px solid var(--grid);
+  }
+  .cat-table td { display: block; padding: 0; border: 0; }
+  .cat-table .ct-name { grid-area: name; white-space: nowrap; min-width: 0; }
+  .cat-table .ct-amt { grid-area: amt; }
+  .cat-table .ct-bar { grid-area: bar; width: auto; align-self: center; }
+  .cat-table .ct-pct { grid-area: pct; width: auto; font-size: 12.5px; }
+}
+
+/* 合計の枠: 文字を大きくしている端末でも収まるよう、入りきらなければ折り返す */
+.month-sum { flex-wrap: wrap; }
+.month-sum > div { flex: 1 1 6.5em; min-width: 0; }
