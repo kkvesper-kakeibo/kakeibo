@@ -70,7 +70,7 @@ export default function SettingsView({ api, book, theme, setTheme, ledger, weekS
         ) : (
           <>
             <p className="muted">最後に同期した時刻: {fmt(api.syncedAt)}</p>
-            <button type="button" onClick={api.login}>
+            <button type="button" onClick={() => void api.login()}>
               Google にログインして同期
             </button>
           </>

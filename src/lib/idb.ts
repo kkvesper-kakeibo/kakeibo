@@ -1,5 +1,7 @@
 // IndexedDB: この端末だけの記録(家計簿データの控え、バックアップフォルダのハンドル)。
 // WebCalendar・写真日記と同じサイト(github.io)に置いても混ざらないように、別の名前にする
+// 専用アプリの中では、IndexedDB の代わりにアプリ本体が暗号化して保存する
+import { hostCall, inDesktopApp, reviveHost } from '../desktop/host'
 let DB = 'kakeibo'
 /** 開発用の ?demo で、本物の控えと混ざらないよう別の保存場所にする */
 export const switchToDemoDb = () => void (DB = 'kakeibo-demo')
@@ -26,6 +28,14 @@ async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBReq
 }
 
 export async function idbGet<T>(key: string): Promise<T | undefined> {
+  if (inDesktopApp) {
+    try {
+      const json = await hostCall<string | null>('kv.get', { key })
+      return json == null ? undefined : (JSON.parse(json, reviveHost) as T)
+    } catch {
+      return undefined
+    }
+  }
   try {
     return await tx<T | undefined>('readonly', (s) => s.get(key))
   } catch {
@@ -33,6 +43,10 @@ export async function idbGet<T>(key: string): Promise<T | undefined> {
   }
 }
 
-export const idbSet = (key: string, value: unknown) => tx<void>('readwrite', (s) => s.put(value, key)).then(() => undefined)
+export const idbSet = (key: string, value: unknown): Promise<void> =>
+  inDesktopApp
+    ? hostCall<void>('kv.set', { key, json: JSON.stringify(value) })
+    : tx<void>('readwrite', (s) => s.put(value, key)).then(() => undefined)
 
-export const idbDelete = (key: string) => tx<void>('readwrite', (s) => s.delete(key)).then(() => undefined)
+export const idbDelete = (key: string): Promise<void> =>
+  inDesktopApp ? hostCall<void>('kv.delete', { key }) : tx<void>('readwrite', (s) => s.delete(key)).then(() => undefined)

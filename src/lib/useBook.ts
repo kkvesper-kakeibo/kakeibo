@@ -5,6 +5,7 @@
 // - 同期は「合わせる」だけなので、PC とスマホで別々に入力しても両方残る
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { requestAccessToken, revokeToken, type AccessToken } from '../google/auth'
+import { desktopHasLogin, inDesktopApp } from '../desktop/host'
 import { AuthExpiredError, loadRemote, pruneRevisions, saveRemote, SCOPE_DRIVE_FILE, type RemoteState } from '../google/drive'
 import { emptyBook, mergeBooks, sameBook, type Book } from './model'
 import { idbGet, idbSet } from './idb'
@@ -66,6 +67,7 @@ export function useBook() {
   const backupTimer = useRef<number>(0)
   const folderRef = useRef<FolderState>(null)
   folderRef.current = folder
+  const autoRelogin = useRef<() => void>(() => {}) // 専用アプリの自動のつなぎ直し(login を作ったあとで入れる)
 
   // ---- 起動: 端末の控えを読む。バックアップフォルダが使えれば、その内容とも合わせる(ブラウザのデータが消えても戻せるように)
   useEffect(() => {
@@ -86,7 +88,7 @@ export function useBook() {
       setSyncedAt(at ?? '')
       setFolderState(f)
       if (fromFolder) await idbSet(BOOK, b).catch(() => {})
-      if (!lsGet(LOGGED_IN)) setStatus('login')
+      if (inDesktopApp ? !desktopHasLogin() : !lsGet(LOGGED_IN)) setStatus('login')
     })()
   }, [])
 
@@ -162,6 +164,7 @@ export function useBook() {
           tokenRef.current = null
           setToken(null)
           setStatus('login')
+          if (desktopHasLogin()) autoRelogin.current() // 専用アプリ: 有効期限(1時間)が切れたら自動でつなぎ直す
           return
         }
         setError(errText(e))
@@ -196,10 +199,13 @@ export function useBook() {
   )
 
   // ---- ログイン
-  const login = useCallback(async () => {
+  /** auto: 起動時などの自動ログイン(専用アプリ)。保存した合鍵だけでつなぎ、ブラウザの確認画面は開かない */
+  const login = useCallback(async (opts: { auto?: boolean } = {}) => {
     setError('')
     try {
-      const t = await requestAccessToken(SCOPE_DRIVE_FILE, [], { silent: lsGet(LOGGED_IN) === '1' })
+      // 専用アプリでは、合鍵があればそれでつなぎ、無いときだけ確認画面(普段のブラウザ)を開く
+      const silent = !!opts.auto || (!inDesktopApp && lsGet(LOGGED_IN) === '1')
+      const t = await requestAccessToken(SCOPE_DRIVE_FILE, [], { silent })
       lsSet(LOGGED_IN, '1')
       tokenRef.current = t
       setToken(t)
@@ -223,7 +229,16 @@ export function useBook() {
   const ensureLogin = useCallback(() => {
     const t = tokenRef.current
     if (t && t.expiresAt > Date.now() + 60_000) return
-    if (lsGet(LOGGED_IN) === '1') void login()
+    if (inDesktopApp) {
+      if (desktopHasLogin()) void login({ auto: true })
+    } else if (lsGet(LOGGED_IN) === '1') void login()
+  }, [login])
+
+  autoRelogin.current = () => void login({ auto: true })
+
+  // 専用アプリ: ログインの合鍵が保存されていれば、起動したらすぐ自動でつなぐ(ボタン操作は要らない)
+  useEffect(() => {
+    if (desktopHasLogin()) void login({ auto: true })
   }, [login])
 
   // 開いている間: 画面に戻ったとき・ネットにつながったとき・5分ごとに同期(ほかの端末の入力を取り込む)

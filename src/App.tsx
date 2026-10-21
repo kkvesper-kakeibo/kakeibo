@@ -212,7 +212,7 @@ export default function App() {
       {!api.token && api.status === 'login' && (
         <div className="banner">
           入力はこのままできます(この端末に保存)。PC とスマホで同じデータを使うには Google にログインしてください。
-          <button type="button" className="small" onClick={api.login}>
+          <button type="button" className="small" onClick={() => void api.login()}>
             ログイン
           </button>
         </div>
@@ -220,7 +220,7 @@ export default function App() {
       {!api.token && api.status === 'idle' && (
         <div className="banner">
           ほかの端末で入力した分を読み込むには「同期」を押してください(入力して保存したときも自動で同期します)。
-          <button type="button" className="small" onClick={api.login}>
+          <button type="button" className="small" onClick={() => void api.login()}>
             同期
           </button>
         </div>
