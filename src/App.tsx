@@ -2,18 +2,30 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useBook } from './lib/useBook'
 import { ALL_LEDGERS, liveLedgers, MAIN_LEDGER, stamp, type Entry, type Kind } from './lib/model'
 import { dayTotals, indexByDay, monthEntries, totalsOf } from './lib/summary'
-import { ymd } from './lib/dates'
+import { WEEKDAYS, addDays, parseYmd, ymd } from './lib/dates'
 import { buildInfo, useNewerVersion, versionLabel } from './lib/version'
 import { useSwipe } from './lib/useSwipe'
 import YearView from './views/YearView'
 import GraphView, { type GraphMode } from './views/GraphView'
 import CalendarView from './views/CalendarView'
+import CalYearView from './views/CalYearView'
+import WeekView from './views/WeekView'
+import DayView from './views/DayView'
 import ListView from './views/ListView'
 import EntryForm from './views/EntryForm'
 import SettingsView, { type Theme } from './views/SettingsView'
 import Money from './views/Money'
 
 type Tab = 'calendar' | 'list' | 'graph' | 'year' | 'settings'
+// カレンダーの表示(年・月・週・日)
+type CalView = 'year' | 'month' | 'week' | 'day'
+const CAL_VIEWS: [CalView, string][] = [
+  ['year', '年'],
+  ['month', '月'],
+  ['week', '週'],
+  ['day', '日'],
+]
+const CAL_VIEW = 'kakeibo.calView'
 const THEME = 'kakeibo.theme'
 const TAB = 'kakeibo.tab'
 const LEDGER = 'kakeibo.ledger'
@@ -52,6 +64,15 @@ export default function App() {
     lsSet(GRAPH_MODE, g)
   }
   const [weekStart, setWeekStartState] = useState(() => Number(lsGet(WEEK_START) ?? '1'))
+  const [calView, setCalViewState] = useState<CalView>(() => {
+    const v = lsGet(CAL_VIEW)
+    return CAL_VIEWS.some(([k]) => k === v) ? (v as CalView) : 'month'
+  })
+  const setCalView = (v: CalView) => {
+    setCalViewState(v)
+    lsSet(CAL_VIEW, v)
+    setSlide('')
+  }
   const ledgers = useMemo(() => (book ? liveLedgers(book) : []), [book])
   // 選んでいた帳簿が消されていたら最初の帳簿に戻す
   const ledger = ledgerPick === ALL_LEDGERS || ledgers.some((l) => l.id === ledgerPick) ? ledgerPick : (ledgers[0]?.id ?? MAIN_LEDGER)
@@ -94,9 +115,36 @@ export default function App() {
     setSelected(nym === today.slice(0, 7) ? today : `${nym}-01`)
     setSlide(d > 0 ? 'next' : 'prev')
   }
-  // 年の画面と、グラフを「年」で見ているときは年単位で移す
-  const byYear = tab === 'year' || (tab === 'graph' && graphMode === 'year')
-  const shift = (d: number) => (byYear ? shiftYear(d) : shiftMonth(d))
+  // 年の画面と、グラフ・カレンダーを「年」で見ているときは年単位で移す
+  const byYear = tab === 'year' || (tab === 'graph' && graphMode === 'year') || (tab === 'calendar' && calView === 'year')
+  // カレンダーの週・日表示は、選んでいる日を基準に週・日単位で移す
+  const byDays = tab === 'calendar' && (calView === 'week' || calView === 'day')
+  const selDate = parseYmd(selected)
+  const weekDates = (() => {
+    const s0 = addDays(selDate, -((selDate.getDay() - weekStart + 7) % 7))
+    return Array.from({ length: 7 }, (_, i) => addDays(s0, i))
+  })()
+  const shiftDays = (d: number) => {
+    const nd = ymd(addDays(selDate, d * (calView === 'week' ? 7 : 1)))
+    setSelected(nd)
+    setYm(nd.slice(0, 7))
+    setSlide(d > 0 ? 'next' : 'prev')
+  }
+  const shift = (d: number) => (byDays ? shiftDays(d) : byYear ? shiftYear(d) : shiftMonth(d))
+  const openDay = (date: string) => {
+    setSelected(date)
+    setYm(date.slice(0, 7))
+    setCalView('day')
+  }
+  const jp = (d: Date, withYear = true, withMonth = true) => `${withYear ? `${d.getFullYear()}年` : ''}${withMonth ? `${d.getMonth() + 1}月` : ''}${d.getDate()}日`
+  let navLabel = byYear ? `${y}年` : `${y}年${m}月`
+  if (byDays && calView === 'day') navLabel = `${jp(selDate)}(${WEEKDAYS[selDate.getDay()]})`
+  else if (byDays) {
+    const [a, b] = [weekDates[0], weekDates[6]]
+    const sameYear = a.getFullYear() === b.getFullYear()
+    navLabel = `${jp(a)}〜${jp(b, !sameYear, !sameYear || a.getMonth() !== b.getMonth())}`
+  }
+  const unit = byDays ? (calView === 'week' ? '週' : '日') : byYear ? '年' : '月'
   // 月・年を移したときの動き(左右に少しずらして表示)
   const [slide, setSlide] = useState<'next' | 'prev' | ''>('')
   // スマホ: 左右にスワイプで月(年の画面では年)を移す
@@ -105,6 +153,21 @@ export default function App() {
   const byDay = useMemo(() => (book ? indexByDay(book, ledger) : new Map<string, Entry[]>()), [book, ledger])
   const totals = useMemo(() => dayTotals(byDay), [byDay])
   const monthT = useMemo(() => (book ? totalsOf(monthEntries(book, ym, ledger)) : { income: 0, expense: 0 }), [book, ym, ledger])
+  // カレンダーの上の合計: 表示している期間(年・月・週・日)の合計
+  const periodKeys = tab !== 'calendar' || calView === 'month' ? null : calView === 'year' ? `${y}-` : calView === 'week' ? weekDates.map(ymd) : [selected]
+  const periodT = !periodKeys
+    ? monthT
+    : (() => {
+        const t = { income: 0, expense: 0 }
+        for (const [d, v] of totals) {
+          if (typeof periodKeys === 'string' ? d.startsWith(periodKeys) : periodKeys.includes(d)) {
+            t.income += v.income
+            t.expense += v.expense
+          }
+        }
+        return t
+      })()
+  const periodName = tab !== 'calendar' ? '' : calView === 'year' ? '年間の' : calView === 'week' ? '週の' : calView === 'day' ? 'この日の' : ''
 
   const save = useCallback(
     (e: Entry) => {
@@ -171,18 +234,18 @@ export default function App() {
         )}
         {tab !== 'settings' && (
           <div className="month-nav">
-            <button type="button" className="ghost small" onClick={() => shift(-1)} aria-label={byYear ? '前の年' : '前の月'}>
+            <button type="button" className="ghost small" onClick={() => shift(-1)} aria-label={`前の${unit}`}>
               ‹
             </button>
             <button
               type="button"
               className="ghost small month-label"
               onClick={() => (setYm(today.slice(0, 7)), setSelected(today))}
-              title={byYear ? '今年に戻る' : '今月に戻る'}
+              title={byDays ? '今日に戻る' : byYear ? '今年に戻る' : '今月に戻る'}
             >
-              {byYear ? `${y}年` : `${y}年${m}月`}
+              {navLabel}
             </button>
-            <button type="button" className="ghost small" onClick={() => shift(1)} aria-label={byYear ? '次の年' : '次の月'}>
+            <button type="button" className="ghost small" onClick={() => shift(1)} aria-label={`次の${unit}`}>
               ›
             </button>
           </div>
@@ -235,26 +298,77 @@ export default function App() {
         </div>
       )}
 
+      {tab === 'calendar' && (
+        <div className="cal-switch">
+          <div className="seg" role="tablist" aria-label="カレンダーの表示">
+            {CAL_VIEWS.map(([v, label]) => (
+              <button key={v} type="button" role="tab" aria-selected={calView === v} className={calView === v ? 'on' : ''} onClick={() => setCalView(v)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {(tab === 'calendar' || tab === 'list') && (
         <div className="month-sum">
           <div>
-            <span className="muted">収入</span>
-            <b><Money value={monthT.income} kind="income" /></b>
+            <span className="muted">{periodName}収入</span>
+            <b><Money value={periodT.income} kind="income" /></b>
           </div>
           <div>
-            <span className="muted">支出</span>
-            <b><Money value={monthT.expense} kind="expense" /></b>
+            <span className="muted">{periodName}支出</span>
+            <b><Money value={periodT.expense} kind="expense" /></b>
           </div>
           <div>
-            <span className="muted">収支</span>
-            <b><Money value={monthT.income - monthT.expense} /></b>
+            <span className="muted">{periodName}収支</span>
+            <b><Money value={periodT.income - periodT.expense} /></b>
           </div>
         </div>
       )}
 
       <main className="main" {...(tab !== 'settings' ? swipe : {})}>
-        <div key={tab === 'settings' ? 'settings' : `${tab}-${byYear ? y : ym}-${tab === 'graph' ? graphMode : ''}`} className={`slide ${slide}`}>
-        {tab === 'calendar' && (
+        <div
+          key={tab === 'settings' ? 'settings' : `${tab}-${byDays ? `${calView}-${calView === 'week' ? ymd(weekDates[0]) : selected}` : byYear ? y : ym}-${tab === 'graph' ? graphMode : tab === 'calendar' ? calView : ''}`}
+          className={`slide ${slide}`}
+        >
+        {tab === 'calendar' && calView === 'year' && (
+          <CalYearView
+            year={y}
+            totals={totals}
+            weekStart={weekStart}
+            onPickDay={openDay}
+            onPickMonth={(nym) => {
+              setYm(nym)
+              setSelected(nym === today.slice(0, 7) ? today : `${nym}-01`)
+              setCalView('month')
+            }}
+          />
+        )}
+        {tab === 'calendar' && calView === 'week' && (
+          <WeekView
+            book={book}
+            dates={weekDates}
+            totals={totals}
+            byDay={byDay}
+            selected={selected}
+            onPickDay={openDay}
+            onEdit={setForm}
+            onAdd={(date) => setForm({ date })}
+            showLedger={ledger === ALL_LEDGERS}
+          />
+        )}
+        {tab === 'calendar' && calView === 'day' && (
+          <DayView
+            book={book}
+            date={selected}
+            totals={totals.get(selected)}
+            entries={byDay.get(selected) ?? []}
+            onEdit={setForm}
+            onAdd={(date) => setForm({ date })}
+            showLedger={ledger === ALL_LEDGERS}
+          />
+        )}
+        {tab === 'calendar' && calView === 'month' && (
           <CalendarView
             book={book}
             year={y}

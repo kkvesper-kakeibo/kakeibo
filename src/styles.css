@@ -397,3 +397,79 @@ input[type='color'] { padding: 2px; width: 40px; height: 34px; }
   .tabbar button { font-size: 13px; padding: 12px 0; }
   .legend-list { min-width: 0; flex: 1 1 100%; }
 }
+
+/* ---- カレンダーの表示切り替え(年・月・週・日) ---- */
+.cal-switch { display: flex; justify-content: center; padding: 10px 16px 0; max-width: 1200px; width: 100%; margin: 0 auto; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--card); }
+.seg button { background: transparent; color: var(--text); border-radius: 0; border: 0; padding: 5px 20px; }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button.on { background: var(--accent); color: var(--accent-text); font-weight: bold; }
+
+/* 年 */
+.cal-year { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1000px) { .cal-year { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .cal-year { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 440px) { .cal-year { grid-template-columns: minmax(0, 1fr); } }
+.cal-year-note { grid-column: 1 / -1; margin: 0; }
+.mini { padding: 8px 10px; }
+.mini-title { all: unset; cursor: pointer; display: flex; justify-content: space-between; align-items: baseline; gap: 6px; width: 100%; box-sizing: border-box; }
+.mini-title:hover b { color: var(--accent); }
+.mini-sum { display: flex; gap: 6px; font-size: 12px; }
+.mini-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center; margin-top: 4px; }
+.mini-wd { font-size: 10px; color: var(--muted); }
+.mini-wd.sun, .mini-day.sun { color: var(--sun); }
+.mini-wd.sat, .mini-day.sat { color: var(--sat); }
+.mini-day {
+  background: transparent; color: var(--text); border: 0; border-radius: 4px; padding: 3px 0; font-size: 12px; line-height: 1.3;
+  font-variant-numeric: tabular-nums; position: relative;
+}
+.mini-day:hover { box-shadow: inset 0 0 0 1px var(--accent); }
+.mini-day.spent { background: color-mix(in srgb, var(--expense) var(--lv), transparent); }
+.mini-day.earned::after { content: ''; position: absolute; left: 20%; right: 20%; bottom: 1px; height: 2px; border-radius: 1px; background: var(--income); }
+.mini-day.today { box-shadow: inset 0 0 0 2px var(--accent); font-weight: bold; }
+
+/* 週 */
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; align-items: start; }
+.week-day { padding: 8px; display: flex; flex-direction: column; gap: 4px; min-height: 160px; }
+.week-day.selected { box-shadow: inset 0 0 0 2px var(--accent); }
+.week-head { all: unset; cursor: pointer; display: flex; flex-direction: column; gap: 0; border-radius: 6px; padding: 2px 4px; }
+.week-head:hover { background: var(--other); }
+.week-date { display: flex; align-items: baseline; gap: 6px; }
+.week-date .daynum { font-size: 20px; font-weight: bold; line-height: 1.2; }
+.week-wd { font-size: 12px; color: var(--muted); }
+.week-head.sun .daynum, .week-head.sun .week-wd { color: var(--sun); }
+.week-head.sat .daynum, .week-head.sat .week-wd { color: var(--sat); }
+.week-day.today .daynum { background: var(--accent); color: var(--accent-text); border-radius: 999px; padding: 0 7px; }
+.week-head .hol-name { margin-left: 0; font-size: 11px; }
+.week-sum { display: flex; flex-direction: column; align-items: flex-end; font-weight: bold; font-size: 14px; min-height: 1.4em; border-bottom: 1px solid var(--grid); padding-bottom: 4px; }
+.week-entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.week-entry {
+  width: 100%; display: flex; flex-direction: column; gap: 0; text-align: left; background: transparent; color: var(--text);
+  border: 0; border-radius: 6px; padding: 4px; font-size: 13px; min-width: 0;
+}
+.week-entry:hover { background: var(--other); }
+.week-entry-cat { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.week-entry-name, .week-entry-memo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.week-entry-memo { color: var(--muted); font-size: 12px; }
+.week-entry-amt { align-self: flex-end; font-weight: bold; }
+.week-add { align-self: stretch; margin-top: auto; padding: 2px 0; }
+@media (max-width: 860px) {
+  .week { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .week-day { min-height: 0; display: grid; grid-template-columns: 5.5em minmax(0, 1fr) auto; grid-template-areas: 'head list add' 'sum list add'; column-gap: 8px; }
+  .week-head { grid-area: head; }
+  .week-sum { grid-area: sum; border-bottom: 0; align-items: flex-start; font-size: 12.5px; }
+  .week-entries { grid-area: list; }
+  .week-add { grid-area: add; align-self: start; padding: 4px 10px; margin: 0; }
+  .week-entry { flex-direction: row; align-items: center; gap: 6px; }
+  .week-entry-cat { flex: none; max-width: 40%; }
+  .week-entry-memo { flex: 1; }
+  .week-entry-amt { align-self: center; margin-left: auto; }
+}
+
+/* 日 */
+.day-view { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 14px; align-items: start; }
+.day-view h2.sun { color: var(--sun); }
+.day-view h2.sat { color: var(--sat); }
+.day-cats + .day-cats { margin-top: 10px; }
+.day-cats tr { cursor: default; }
+@media (max-width: 860px) { .day-view { grid-template-columns: minmax(0, 1fr); } }
